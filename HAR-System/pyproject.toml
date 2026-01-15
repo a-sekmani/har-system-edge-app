@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "har-system"
+version = "1.0.0"
+description = "Human Activity Recognition System using Hailo-8 and Raspberry Pi"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["har", "activity-recognition", "hailo", "raspberry-pi", "edge-ai"]
+
+dependencies = [
+    "numpy>=1.21.0",
+    "opencv-python>=4.5.0",
+]
+
+[project.scripts]
+har-system = "har_system.apps.realtime_pose:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["har_system*"]

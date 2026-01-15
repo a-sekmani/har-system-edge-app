@@ -1,0 +1,15 @@
+# Temporal Behavior Analysis - Requirements
+# =========================================
+
+# Core dependencies (already in hailo-apps)
+numpy>=1.21.0
+opencv-python>=4.5.0
+
+# Note: The following are installed via hailo-apps
+# - pygobject (GStreamer bindings)
+# - hailo-tappas-core
+# - hailort
+
+# For development (optional)
+# pytest>=7.0.0
+# black>=22.0.0
