@@ -313,8 +313,9 @@ class TemporalActivityTracker:
         if bbox_height <= 0:
             return None
         
-        # Ratio: where hip is located relative to ankle
-        hip_ratio = (hip_y - ankle_y) / bbox_height
+        # Ratio: distance from ankle to hip (ankle is lower, so ankle_y > hip_y)
+        # For standing: ~0.45-0.55, for sitting: ~0.65-0.80
+        hip_ratio = (ankle_y - hip_y) / bbox_height
         
         return hip_ratio
     

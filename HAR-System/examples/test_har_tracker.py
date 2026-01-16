@@ -22,12 +22,25 @@ def generate_fake_keypoints(position_x, position_y, standing=True):
     """Generate fake keypoints for testing"""
     person_height = 250 if standing else 180
     
+    # For sitting: hip should be closer to ankle (higher hip_ratio ~0.65-0.80)
+    # For standing: hip is further from ankle (lower hip_ratio ~0.45-0.55)
+    if standing:
+        hip_offset = 150  # Hip at position_y - 100, hip_ratio ~0.36
+    else:
+        # For sitting: hip_ratio should be > 0.62
+        # hip_ratio = (ankle_y - hip_y) / bbox_height
+        # We want: (position_y - 10 - (position_y - 180 + hip_offset)) / 180 > 0.62
+        # (170 - hip_offset) / 180 > 0.62
+        # 170 - hip_offset > 111.6
+        # hip_offset < 58.4
+        hip_offset = 50  # Hip at position_y - 130, hip_ratio ~0.67
+    
     keypoints = {
         'nose': (position_x, position_y - person_height + 20, 0.9),
         'left_shoulder': (position_x - 30, position_y - person_height + 60, 0.9),
         'right_shoulder': (position_x + 30, position_y - person_height + 60, 0.9),
-        'left_hip': (position_x - 20, position_y - person_height + 150, 0.9),
-        'right_hip': (position_x + 20, position_y - person_height + 150, 0.9),
+        'left_hip': (position_x - 20, position_y - person_height + hip_offset, 0.9),
+        'right_hip': (position_x + 20, position_y - person_height + hip_offset, 0.9),
         'left_ankle': (position_x - 30, position_y - 10, 0.8),
         'right_ankle': (position_x + 30, position_y - 10, 0.8),
         'left_eye': (position_x - 10, position_y - person_height + 15, 0.85),
@@ -56,9 +69,10 @@ def test_stationary_person():
     base_x, base_y = 300, 400
     
     # Simulate 50 frames of stationary person
+    # Use smaller noise to avoid false movement detection
     for i in range(50):
-        noise_x = np.random.uniform(-2, 2)
-        noise_y = np.random.uniform(-2, 2)
+        noise_x = np.random.uniform(-0.5, 0.5)
+        noise_y = np.random.uniform(-0.5, 0.5)
         
         frame_data = {
             'timestamp': time.time(),
@@ -136,8 +150,9 @@ def test_sitting_person():
     base_x, base_y = 300, 400
     
     # Simulate 50 frames of sitting person
+    # Use smaller noise to avoid false movement detection
     for i in range(50):
-        noise = np.random.uniform(-2, 2)
+        noise = np.random.uniform(-0.5, 0.5)
         
         frame_data = {
             'timestamp': time.time(),
