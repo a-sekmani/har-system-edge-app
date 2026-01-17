@@ -12,6 +12,7 @@ env/
 
 # Data outputs
 temporal_data/
+results/
 my_data/
 *.json
 *.csv
@@ -43,3 +44,6 @@ dist/
 
 # Docs (keeping only README.md)
 docs/
+
+# Dataset
+test_dataset/

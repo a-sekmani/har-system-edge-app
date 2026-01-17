@@ -28,7 +28,7 @@ class HARCallbackHandler(app_callback_class):
         self.verbose = config.get('verbose', False)
         self.print_every_n_frames = config.get('print_every_n_frames', 30)
         self.save_data = config.get('save_data', False)
-        self.output_dir = config.get('output_dir', './temporal_data')
+        self.output_dir = config.get('output_dir', './results/camera')
         
         # Statistics
         self.frame_times = []
@@ -106,6 +106,54 @@ def extract_frame_data(detection, keypoint_map: Dict) -> Dict[str, Any]:
         'keypoints': keypoints,
         'confidence': detection.get_confidence()
     }
+
+
+def extract_eye_positions(detection, keypoint_map: Dict, frame_width: int, frame_height: int) -> tuple:
+    """
+    Extract eye positions from detection
+    
+    Args:
+        detection: Hailo detection object
+        keypoint_map: Keypoint name to index mapping
+        frame_width: Frame width in pixels
+        frame_height: Frame height in pixels
+    
+    Returns:
+        (person_id, left_eye_x, left_eye_y, right_eye_x, right_eye_y) or None
+    """
+    # Extract Track ID
+    track = detection.get_objects_typed(hailo.HAILO_UNIQUE_ID)
+    if len(track) != 1:
+        return None
+    person_id = track[0].get_id()
+    
+    # Extract Bounding Box
+    bbox_obj = detection.get_bbox()
+    
+    # Extract Keypoints
+    landmarks = detection.get_objects_typed(hailo.HAILO_LANDMARKS)
+    if not landmarks:
+        return None
+    
+    points = landmarks[0].get_points()
+    
+    # Extract left eye position
+    left_eye_idx = keypoint_map.get("left_eye", 1)
+    if left_eye_idx >= len(points):
+        return None
+    left_eye_point = points[left_eye_idx]
+    left_eye_x = int((left_eye_point.x() * bbox_obj.width() + bbox_obj.xmin()) * frame_width)
+    left_eye_y = int((left_eye_point.y() * bbox_obj.height() + bbox_obj.ymin()) * frame_height)
+    
+    # Extract right eye position
+    right_eye_idx = keypoint_map.get("right_eye", 2)
+    if right_eye_idx >= len(points):
+        return None
+    right_eye_point = points[right_eye_idx]
+    right_eye_x = int((right_eye_point.x() * bbox_obj.width() + bbox_obj.xmin()) * frame_width)
+    right_eye_y = int((right_eye_point.y() * bbox_obj.height() + bbox_obj.ymin()) * frame_height)
+    
+    return (person_id, left_eye_x, left_eye_y, right_eye_x, right_eye_y)
 
 
 def print_frame_summary(frame_count: int, active_tracks: list, temporal_tracker):

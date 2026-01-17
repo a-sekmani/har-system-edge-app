@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 # Check environment
 if [ ! -d "../venv_hailo_apps" ]; then
     echo "[ERROR] Virtual environment not found"
-    echo "   Please run: cd /home/admin/hailo-apps && source setup_env.sh"
+    echo "   Please run: cd ~/hailo-apps && source setup_env.sh"
     exit 1
 fi
 

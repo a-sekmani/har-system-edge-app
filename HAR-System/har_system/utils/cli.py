@@ -57,8 +57,8 @@ Usage Examples:
     parser.add_argument(
         '--output-dir',
         type=str,
-        default='./temporal_data',
-        help='Data save directory (default: ./temporal_data)'
+        default='./results/camera',
+        help='Data save directory (default: ./results/camera)'
     )
     
     parser.add_argument(

@@ -12,7 +12,7 @@ cd "$(dirname "$0")/.."
 # Check environment
 if [ ! -d "../venv_hailo_apps" ]; then
     echo "[ERROR] Virtual environment not found"
-    echo "   Please run: cd /home/admin/hailo-apps && sudo ./install.sh"
+    echo "   Please run: cd ~/hailo-apps && sudo ./install.sh"
     exit 1
 fi
 
@@ -25,7 +25,7 @@ echo ""
 echo "[RUN] Starting HAR-System..."
 echo "   Press Ctrl+C to stop"
 echo ""
-python3 -m har_system --input rpi --show-fps
+python3 -m har_system realtime --input rpi --show-fps
 
 echo ""
 echo "=================================================="

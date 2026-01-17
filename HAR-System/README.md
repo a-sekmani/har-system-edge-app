@@ -1,9 +1,6 @@
-# 🧠 HAR-System: Human Activity Recognition
+# 🧠 HAR System Edge App
 
-**Real-time human activity recognition using Hailo-8 and Raspberry Pi**
-
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Real-time human activity recognition using Raspberry Pi and Hailo-8 accelerator**
 
 ---
 
@@ -13,7 +10,7 @@ HAR-System is an intelligent edge AI system for real-time human activity recogni
 - **Hailo-8 AI Accelerator** for fast pose estimation
 - **Temporal tracking** to understand behavior over time
 - **Normalized measurements** that work on any resolution/distance/angle
-- **Real-time processing** at 10-15 FPS on Raspberry Pi 5
+- **Real-time processing** at 10-15 FPS 
 
 ### ✨ Key Features
 
@@ -33,18 +30,38 @@ HAR-System is an intelligent edge AI system for real-time human activity recogni
 HAR-System/
 │
 ├── 📦 har_system/              # Main package
+│   ├── __init__.py             # Package initialization
+│   ├── __main__.py             # CLI entry point (python -m har_system)
 │   ├── core/                   # Core tracking engine
+│   │   ├── __init__.py
 │   │   ├── tracker.py          # TemporalActivityTracker
 │   │   └── callbacks.py        # Frame processing
 │   ├── utils/                  # Utility functions
+│   │   ├── __init__.py
 │   │   └── cli.py              # CLI tools
 │   └── apps/                   # Applications
-│       └── realtime_pose.py    # Main app
+│       ├── __init__.py
+│       ├── realtime_pose.py    # Main real-time app
+│       └── chokepoint_analyzer.py  # ChokePoint dataset analyzer
 │
 ├── 🧪 examples/                # Examples & tests
+│   ├── demo_temporal_tracking.py
+│   └── test_har_tracker.py
+│
 ├── 📜 scripts/                 # Shell scripts
+│   ├── run_with_camera.sh
+│   ├── run_chokepoint_analysis.sh
+│   ├── run_examples.sh
+│   └── run_tests.sh
+│
 ├── ⚙️ config/                   # Configuration files
-└── 📄 setup.py                 # Installation script
+│   └── default.yaml
+│
+├── 📄 setup.py                 # Installation script
+├── 📄 pyproject.toml           # Python project configuration
+├── 📄 requirements.txt         # Python dependencies
+├── 📄 CHOKEPOINT_README.md     # ChokePoint analyzer documentation
+└── 📄 README.md                # This file
 ```
 
 ---
@@ -56,7 +73,7 @@ HAR-System/
 #### Prerequisites
 ```bash
 # Install hailo-apps first
-cd /home/admin/hailo-apps
+cd ~ /hailo-apps
 sudo ./install.sh
 source setup_env.sh
 ```
@@ -76,7 +93,7 @@ pip install .
 
 ```bash
 # Using module
-python3 -m har_system --input rpi --show-fps
+python3 -m har_system realtime --input rpi --show-fps
 
 # Using installed command
 har-system --input rpi --show-fps
@@ -86,13 +103,33 @@ cd scripts
 ./run_with_camera.sh
 ```
 
-### 3. Run Examples
+### 3. Run ChokePoint Dataset Analysis
 
 ```bash
-# Test tracker
-python3 examples/test_har_tracker.py
+# Analyze ChokePoint dataset
+python3 -m har_system chokepoint --dataset-path ./test_dataset --results-dir ./results
 
-# Simple demo
+# Or using installed command (after reinstall)
+har-chokepoint --dataset-path ./test_dataset --results-dir ./results
+
+# Or using script
+cd scripts
+./run_chokepoint_analysis.sh
+```
+
+For more details, see [CHOKEPOINT_README.md](CHOKEPOINT_README.md).
+
+### 4. Run Examples
+
+```bash
+# Using script (recommended)
+cd scripts
+./run_examples.sh              # Run all examples
+./run_examples.sh test          # Run test_har_tracker.py only
+./run_examples.sh demo          # Run demo_temporal_tracking.py only
+
+# Or directly with Python
+python3 examples/test_har_tracker.py
 python3 examples/demo_temporal_tracking.py
 ```
 
@@ -100,38 +137,73 @@ python3 examples/demo_temporal_tracking.py
 
 ## 📖 Usage
 
-### Command Line Options
+### Command Line Interface
+
+HAR-System supports multiple commands via the unified CLI:
 
 ```bash
-har-system [OPTIONS]
+# Main entry point
+python3 -m har_system <command> [options]
+
+# Or using installed commands (after pip install)
+har-system [options]          # Real-time app
+har-chokepoint [options]      # ChokePoint analyzer
+```
+
+### Real-time Pose Tracking
+
+```bash
+# Command options
+python3 -m har_system realtime [OPTIONS]
 
 Options:
   -i, --input TEXT        Video source (rpi/usb/file) [default: rpi]
   -f, --show-fps          Show FPS counter
   -v, --verbose           Show detailed information
   --save-data             Save tracking data to JSON
-  --output-dir TEXT       Output directory [default: ./temporal_data]
+  --output-dir TEXT       Output directory [default: ./results/camera]
   --print-interval INT    Print summary every N frames [default: 30]
 ```
 
-### Examples
-
+**Examples:**
 ```bash
 # With Raspberry Pi camera
-har-system --input rpi --show-fps
+python3 -m har_system realtime --input rpi --show-fps
 
 # With USB camera
-har-system --input usb --show-fps
+python3 -m har_system realtime --input usb --show-fps
 
 # With video file
-har-system --input video.mp4
+python3 -m har_system realtime --input video.mp4
 
 # Save data
-har-system --input rpi --save-data --output-dir ./my_data
+python3 -m har_system realtime --input rpi --save-data --output-dir ./my_data
 
 # Verbose mode
-har-system --input rpi --verbose --print-interval 60
+python3 -m har_system realtime --input rpi --verbose --print-interval 60
 ```
+
+### ChokePoint Dataset Analysis
+
+```bash
+# Command options
+python3 -m har_system chokepoint [OPTIONS]
+
+Options:
+  --dataset-path TEXT     Path to test_dataset folder [default: ./test_dataset]
+  --results-dir TEXT      Results output directory [default: ./results]
+```
+
+**Examples:**
+```bash
+# Analyze ChokePoint dataset
+python3 -m har_system chokepoint --dataset-path ./test_dataset
+
+# Custom results directory
+python3 -m har_system chokepoint --dataset-path ./test_dataset --results-dir ./my_results
+```
+
+For detailed ChokePoint documentation, see [CHOKEPOINT_README.md](CHOKEPOINT_README.md).
 
 ---
 
@@ -284,21 +356,38 @@ python3 -c "from examples.test_har_tracker import test_moving_person; test_movin
 ```python
 har_system/
 ├── __init__.py           # Package exports
-├── __main__.py           # Entry point for python -m
+├── __main__.py           # Unified CLI entry point (python -m har_system)
+│                         # Supports: realtime, chokepoint commands
 ├── core/                 # Core components
+│   ├── __init__.py
 │   ├── tracker.py        # Main tracking algorithm (~540 lines)
 │   └── callbacks.py      # Frame processing (~210 lines)
 ├── utils/                # Utilities
-│   └── cli.py            # CLI functions (~80 lines)
+│   ├── __init__.py
+│   └── cli.py            # CLI helper functions (~100 lines)
 └── apps/                 # Applications
-    └── realtime_pose.py  # Main app (~115 lines)
+    ├── __init__.py
+    ├── realtime_pose.py  # Main real-time app (~115 lines)
+    └── chokepoint_analyzer.py  # ChokePoint dataset analyzer (~580 lines)
 ```
+
+### Entry Points
+
+The system provides multiple entry points:
+
+1. **Module entry point**: `python3 -m har_system <command>` (via `__main__.py`)
+2. **Console scripts** (after `pip install`):
+   - `har-system` → `har_system.apps.realtime_pose:main`
+   - `har-chokepoint` → `har_system.apps.chokepoint_analyzer:main`
 
 ### Adding New Features
 
 1. **New activity classifier**: Edit `har_system/core/tracker.py`
 2. **New callback**: Edit `har_system/core/callbacks.py`
-3. **New application**: Add to `har_system/apps/`
+3. **New application**: 
+   - Add to `har_system/apps/`
+   - Register in `har_system/__main__.py` as a new command
+   - Add entry point in `setup.py` (optional)
 4. **New utility**: Add to `har_system/utils/`
 
 ---
@@ -324,55 +413,3 @@ fall_detector:
   fall_drop_ratio: 0.35      # Less sensitive
   fall_time_threshold: 0.6
 ```
-
----
-
-## 📦 Dependencies
-
-- **Python** >= 3.8
-- **numpy** >= 1.21.0
-- **opencv-python** >= 4.5.0
-- **hailo-apps** (for Hailo integration)
-- **GStreamer** with Hailo plugins
-
-All dependencies are installed via `setup.py`.
-
----
-
-## 🤝 Contributing
-
-Contributions welcome! To contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
----
-
-## 📄 License
-
-MIT License - See LICENSE file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Built on top of [hailo-apps](https://github.com/hailo-ai/hailo-rpi5-examples)
-- Uses Hailo-8 AI Accelerator
-- Designed for Raspberry Pi 5
-
----
-
-## 📞 Support
-
-- **Issues**: Check examples and tests first
-- **Questions**: Review this README
-- **Community**: [Hailo Community Forum](https://community.hailo.ai/)
-
----
-
-**Built with ❤️ for Edge AI**  
-**Version**: 1.0.0  
-**Status**: 🟢 Production Ready

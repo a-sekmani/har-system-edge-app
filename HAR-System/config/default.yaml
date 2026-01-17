@@ -29,7 +29,7 @@ display:
 data_export:
   # Data export settings
   save_data: false            # Save data automatically
-  output_dir: ./temporal_data # Save directory
+  output_dir: ./results/camera # Save directory
   save_interval: 300          # Save every N frames
 
 # Video settings (passed to GStreamer)

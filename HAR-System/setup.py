@@ -23,6 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'har-system=har_system.apps.realtime_pose:main',
+            'har-chokepoint=har_system.apps.chokepoint_analyzer:main',
         ],
     },
     include_package_data=True,
