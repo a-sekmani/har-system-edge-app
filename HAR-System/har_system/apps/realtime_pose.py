@@ -52,6 +52,20 @@ def main():
     # Parse arguments
     args = parse_arguments()
     
+    # Load configuration from file if exists
+    from pathlib import Path
+    config_file = Path(project_root) / "config" / "default.yaml"
+    face_recognition_config = {}
+    
+    if config_file.exists():
+        try:
+            import yaml
+            with open(config_file, 'r') as f:
+                full_config = yaml.safe_load(f)
+                face_recognition_config = full_config.get('har_system', {}).get('face_recognition', {})
+        except Exception as e:
+            print(f"[WARNING] Could not load config file: {e}")
+    
     # Setup configuration
     config = {
         'input': args.input,
@@ -60,6 +74,7 @@ def main():
         'print_every_n_frames': args.print_interval,
         'save_data': args.save_data,
         'output_dir': args.output_dir,
+        'face_recognition': face_recognition_config,
     }
     
     # Print configuration
@@ -72,8 +87,53 @@ def main():
     hailo_logger.info("Creating HAR temporal tracker...")
     tracker = TemporalActivityTracker(history_seconds=3.0, fps_estimate=15)
     
+    # Initialize face recognition if enabled
+    face_identity_manager = None
+    face_processor = None
+    
+    if args.enable_face_recognition:
+        print("\n[FACE-RECOG] Initializing face recognition system...")
+        try:
+            from har_system.core import FaceIdentityManager
+            from har_system.core.face_processor import FaceRecognitionProcessor
+            
+            # Get database directory
+            database_dir = args.database_dir or face_recognition_config.get('database_dir', './database')
+            samples_dir = f"{database_dir}/samples"
+            confidence_threshold = face_recognition_config.get('confidence_threshold', 0.70)
+            
+            # Create face identity manager
+            face_identity_manager = FaceIdentityManager(
+                min_confirmations=face_recognition_config.get('min_confirmations', 2),
+                identity_timeout=face_recognition_config.get('identity_timeout', 5.0)
+            )
+            
+            # Create face processor
+            face_processor = FaceRecognitionProcessor(
+                database_dir=database_dir,
+                samples_dir=samples_dir,
+                confidence_threshold=confidence_threshold
+            )
+            
+            if face_processor.is_enabled():
+                stats = face_processor.get_database_stats()
+                print(f"[FACE-RECOG] Database loaded: {stats.get('total_persons', 0)} persons")
+                if stats.get('persons'):
+                    print(f"[FACE-RECOG] Known persons: {', '.join(stats.get('persons', []))}")
+            else:
+                print("[FACE-RECOG] Face recognition disabled (database not available)")
+                face_identity_manager = None
+                face_processor = None
+                
+        except Exception as e:
+            print(f"[FACE-RECOG] Failed to initialize: {e}")
+            import traceback
+            traceback.print_exc()
+            face_identity_manager = None
+            face_processor = None
+    
     # Create callback handler
-    user_data = HARCallbackHandler(tracker, config)
+    user_data = HARCallbackHandler(tracker, config, face_identity_manager, face_processor)
     
     # Initialize GStreamer Pipeline
     hailo_logger.info("Initializing GStreamer Pipeline...")
@@ -90,6 +150,8 @@ def main():
         app = GStreamerPoseEstimationApp(process_frame_callback, user_data)
         
         print("\n[READY] HAR-System ready to run!")
+        if face_processor and face_processor.is_enabled():
+            print("[READY] Face recognition: ENABLED")
         print("   Press Ctrl+C to stop\n")
         
         # Run application
@@ -102,7 +164,7 @@ def main():
         raise
     finally:
         # Print final summary
-        print_final_summary(user_data.get_tracker())
+        print_final_summary(user_data.get_tracker(), user_data.get_face_identity_manager())
         
         # Save final data
         if args.save_data:

@@ -5,21 +5,26 @@ GStreamer callback handlers for HAR processing
 """
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import numpy as np
 import hailo
 from hailo_apps.python.core.gstreamer.gstreamer_app import app_callback_class
+from hailo_apps.python.core.common.buffer_utils import get_numpy_from_buffer_efficient, get_caps_from_pad
 
 
 class HARCallbackHandler(app_callback_class):
     """Callback handler for HAR-System processing"""
     
-    def __init__(self, temporal_tracker, config: Dict[str, Any]):
+    def __init__(self, temporal_tracker, config: Dict[str, Any], 
+                 face_identity_manager=None, face_processor=None):
         """
         Initialize callback handler
         
         Args:
             temporal_tracker: TemporalActivityTracker instance
             config: Configuration dictionary
+            face_identity_manager: FaceIdentityManager instance (optional)
+            face_processor: FaceRecognitionProcessor instance (optional)
         """
         super().__init__()
         
@@ -30,13 +35,36 @@ class HARCallbackHandler(app_callback_class):
         self.save_data = config.get('save_data', False)
         self.output_dir = config.get('output_dir', './results/camera')
         
+        # Face recognition components
+        self.face_identity_manager = face_identity_manager
+        self.face_processor = face_processor
+        self.face_recognition_enabled = (face_identity_manager is not None and 
+                                        face_processor is not None and
+                                        face_processor.is_enabled())
+        
+        # Face recognition settings
+        self.recognition_interval = config.get('face_recognition', {}).get('recognition_interval_frames', 15)
+        self.skip_first_frames = config.get('face_recognition', {}).get('skip_first_frames', 5)
+        self.track_frame_counts = {}  # Track frame count per track_id
+        
         # Statistics
         self.frame_times = []
         self.last_summary_time = time.time()
+        
+        if self.face_recognition_enabled:
+            print("[CALLBACK] Face recognition enabled with processor")
+            stats = self.face_processor.get_database_stats()
+            print(f"[CALLBACK] Known persons: {stats.get('total_persons', 0)}")
+            if stats.get('persons'):
+                print(f"[CALLBACK] Trained: {', '.join(stats.get('persons', []))}")
     
     def get_tracker(self):
         """Get temporal tracker instance"""
         return self.temporal_tracker
+    
+    def get_face_identity_manager(self):
+        """Get face identity manager instance"""
+        return self.face_identity_manager
 
 
 def get_keypoint_mapping():
@@ -165,7 +193,10 @@ def print_frame_summary(frame_count: int, active_tracks: list, temporal_tracker)
     for track_id in active_tracks:
         summary = temporal_tracker.get_summary(track_id)
         if summary:
-            print(f"\n  [TRACK] {track_id}:")
+            name = summary.get('name', 'Unknown')
+            display_name = f"{track_id} - {name}" if name != 'Unknown' else str(track_id)
+            
+            print(f"\n  [TRACK] {display_name}:")
             print(f"     Activity: {summary['current_activity']}")
             print(f"     Duration: {summary['duration_seconds']:.1f}s")
             print(f"     Normalized Distance: {summary['stats']['total_distance_normalized']:.2f}")
@@ -223,10 +254,69 @@ def process_frame_callback(element, buffer, user_data):
         try:
             activity = user_data.temporal_tracker.update(track_id, frame_data)
             
+            # Face recognition processing
+            if user_data.face_recognition_enabled:
+                # Initialize frame count for new tracks
+                if track_id not in user_data.track_frame_counts:
+                    user_data.track_frame_counts[track_id] = 0
+                
+                user_data.track_frame_counts[track_id] += 1
+                
+                # Check if we should attempt face recognition
+                track_frames = user_data.track_frame_counts[track_id]
+                
+                # Skip first few frames (usually blurry)
+                if track_frames > user_data.skip_first_frames:
+                    # Check if recognition is needed (at intervals)
+                    if (track_frames - user_data.skip_first_frames) % user_data.recognition_interval == 0:
+                        # Check if track needs recognition
+                        if user_data.face_identity_manager.needs_recognition(track_id):
+                            # Extract frame image from buffer
+                            try:
+                                pad = element.get_static_pad("src")
+                                if pad:
+                                    format_str, frame_width, frame_height = get_caps_from_pad(pad)
+                                    frame_image = get_numpy_from_buffer_efficient(buffer, format_str, frame_width, frame_height)
+                                    
+                                    # Extract bbox for face region
+                                    bbox_obj = detection.get_bbox()
+                                    bbox = {
+                                        'xmin': bbox_obj.xmin(),
+                                        'ymin': bbox_obj.ymin(),
+                                        'xmax': bbox_obj.xmax(),
+                                        'ymax': bbox_obj.ymax()
+                                    }
+                                    
+                                    # Perform face recognition
+                                    name, confidence, global_id = user_data.face_processor.recognize_from_keypoints(
+                                        frame_image, frame_data['keypoints'], bbox, frame_width, frame_height
+                                    )
+                                    
+                                    # Update identity
+                                    if name != "Unknown":
+                                        updated = user_data.face_identity_manager.update_identity(
+                                            track_id, name, confidence, global_id
+                                        )
+                                        if updated:
+                                            print(f"[RECOGNITION] Track #{track_id} recognized as: {name} ({confidence:.2f})")
+                            except Exception as e:
+                                print(f"[ERROR] Face recognition failed: {e}")
+            
+            # Update identity in tracker
+            if user_data.face_recognition_enabled:
+                name = user_data.face_identity_manager.get_identity(track_id)
+                user_data.temporal_tracker.update_identity(track_id, name)
+                
+                # Note: We cannot modify detection.label in Hailo (read-only)
+                # The name will be shown in terminal output and saved in JSON
+                # For video overlay, you would need to use a custom overlay element
+            
             # Detect activity change
             change = user_data.temporal_tracker.detect_activity_change(track_id)
             if change:
-                print(f"\n[CHANGE] Track {track_id}: {change['from']} → {change['to']}")
+                name = user_data.temporal_tracker.get_identity(track_id)
+                display_id = f"{track_id} ({name})" if name != 'Unknown' else str(track_id)
+                print(f"\n[CHANGE] Track {display_id}: {change['from']} → {change['to']}")
             
         except Exception as e:
             print(f"[ERROR] Error updating tracker: {e}")

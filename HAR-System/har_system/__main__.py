@@ -39,6 +39,17 @@ Examples:
         help='Real-time human pose tracking and activity recognition'
     )
     realtime_parser.add_argument(
+        '--enable-face-recognition',
+        action='store_true',
+        help='Enable face recognition (requires trained database)'
+    )
+    realtime_parser.add_argument(
+        '--database-dir',
+        type=str,
+        default='./database',
+        help='Face recognition database directory (default: ./database)'
+    )
+    realtime_parser.add_argument(
         '--input', '-i',
         type=str,
         default='rpi',
@@ -72,6 +83,58 @@ Examples:
         help='Print summary every N frames (default: 30)'
     )
     
+    # Face training command
+    train_parser = subparsers.add_parser(
+        'train-faces',
+        help='Train face recognition with images'
+    )
+    train_parser.add_argument(
+        '--train-dir',
+        type=str,
+        default='./train_faces',
+        help='Directory with training images (default: ./train_faces)'
+    )
+    train_parser.add_argument(
+        '--database-dir',
+        type=str,
+        default='./database',
+        help='Database directory (default: ./database)'
+    )
+    train_parser.add_argument(
+        '--confidence-threshold',
+        type=float,
+        default=0.70,
+        help='Recognition confidence threshold (default: 0.70)'
+    )
+    
+    # Face management command
+    faces_parser = subparsers.add_parser(
+        'faces',
+        help='Manage face recognition database'
+    )
+    faces_parser.add_argument(
+        '--list',
+        action='store_true',
+        help='List all known persons'
+    )
+    faces_parser.add_argument(
+        '--remove',
+        type=str,
+        metavar='NAME',
+        help='Remove a person from database'
+    )
+    faces_parser.add_argument(
+        '--clear',
+        action='store_true',
+        help='Clear entire database'
+    )
+    faces_parser.add_argument(
+        '--database-dir',
+        type=str,
+        default='./database',
+        help='Database directory (default: ./database)'
+    )
+    
     # ChokePoint analysis command
     chokepoint_parser = subparsers.add_parser(
         'chokepoint',
@@ -89,6 +152,17 @@ Examples:
         default='./results',
         help='Results output directory (default: ./results)'
     )
+    chokepoint_parser.add_argument(
+        '--enable-face-recognition',
+        action='store_true',
+        help='Enable face recognition (person_id will be name or -1)'
+    )
+    chokepoint_parser.add_argument(
+        '--database-dir',
+        type=str,
+        default='./database',
+        help='Face recognition database directory (default: ./database)'
+    )
     
     args = parser.parse_args()
     
@@ -97,7 +171,31 @@ Examples:
         sys.exit(1)
     
     # Dispatch to appropriate application
-    if args.command == 'realtime':
+    if args.command == 'train-faces':
+        from har_system.apps.train_faces import main as train_main
+        train_main(
+            train_dir=args.train_dir,
+            database_dir=args.database_dir,
+            confidence_threshold=getattr(args, 'confidence_threshold', 0.70)
+        )
+    
+    elif args.command == 'faces':
+        from har_system.apps.manage_faces import main as faces_main
+        original_argv = sys.argv.copy()
+        try:
+            sys.argv = ['manage_faces']
+            if args.list:
+                sys.argv.append('--list')
+            if args.remove:
+                sys.argv.extend(['--remove', args.remove])
+            if args.clear:
+                sys.argv.append('--clear')
+            sys.argv.extend(['--database-dir', args.database_dir])
+            faces_main()
+        finally:
+            sys.argv = original_argv
+    
+    elif args.command == 'realtime':
         from har_system.apps.realtime_pose import main as realtime_main
         # Convert args to format expected by realtime_pose
         original_argv = sys.argv.copy()
@@ -113,6 +211,10 @@ Examples:
                 sys.argv.append('--save-data')
             sys.argv.extend(['--output-dir', args.output_dir])
             sys.argv.extend(['--print-interval', str(args.print_interval)])
+            if args.enable_face_recognition:
+                sys.argv.append('--enable-face-recognition')
+            if args.database_dir:
+                sys.argv.extend(['--database-dir', args.database_dir])
             realtime_main()
         finally:
             sys.argv = original_argv
@@ -126,6 +228,10 @@ Examples:
                 '--dataset-path', args.dataset_path,
                 '--results-dir', args.results_dir
             ]
+            if args.enable_face_recognition:
+                sys.argv.append('--enable-face-recognition')
+            if args.database_dir:
+                sys.argv.extend(['--database-dir', args.database_dir])
             chokepoint_main()
         finally:
             sys.argv = original_argv

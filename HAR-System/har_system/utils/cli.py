@@ -68,6 +68,19 @@ Usage Examples:
         help='Print summary every N frames (default: 30)'
     )
     
+    parser.add_argument(
+        '--enable-face-recognition',
+        action='store_true',
+        help='Enable face recognition (requires trained database)'
+    )
+    
+    parser.add_argument(
+        '--database-dir',
+        type=str,
+        default=None,
+        help='Face recognition database directory (default: ./database)'
+    )
+    
     return parser.parse_args()
 
 
@@ -99,7 +112,7 @@ def save_final_data(temporal_tracker, output_dir: str):
     print(f"  [DONE] Data saved to: {output_dir}")
 
 
-def print_final_summary(temporal_tracker):
+def print_final_summary(temporal_tracker, face_identity_manager=None):
     """Print final statistics summary"""
     print("\n" + "="*60)
     print("[SUMMARY] Final Summary")
@@ -109,4 +122,14 @@ def print_final_summary(temporal_tracker):
     print(f"\n  Total People Detected: {global_stats['total_tracks_seen']}")
     print(f"  Total Falls: {global_stats['total_falls_detected']}")
     print(f"  Total Activity Changes: {global_stats['total_activity_changes']}")
+    
+    # Add face recognition statistics if available
+    if face_identity_manager:
+        face_stats = face_identity_manager.get_statistics()
+        print(f"\n  [Face Recognition]")
+        print(f"  People Recognized: {face_stats['identified_tracks']}")
+        print(f"  Unique Persons: {face_stats['unique_persons']}")
+        if face_stats['person_names']:
+            print(f"  Names: {', '.join(face_stats['person_names'])}")
+    
     print("\n[EXIT] Thank you for using HAR-System!\n")

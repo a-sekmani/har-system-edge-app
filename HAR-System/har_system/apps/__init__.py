@@ -1,9 +1,8 @@
 """
 HAR-System Applications
 =======================
-Ready-to-use applications
+Application modules - imported dynamically when needed
 """
 
-from .realtime_pose import main
-
-__all__ = ['main']
+# Don't import automatically to avoid dependency issues
+__all__ = []

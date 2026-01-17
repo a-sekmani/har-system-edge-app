@@ -47,3 +47,5 @@ docs/
 
 # Dataset
 test_dataset/
+train_faces/
+database/

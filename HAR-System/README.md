@@ -21,6 +21,7 @@ HAR-System is an intelligent edge AI system for real-time human activity recogni
 - ✅ **Normalized metrics** independent of camera setup
 - ✅ **Data export** to JSON for analysis
 - ✅ **Modular architecture** easy to extend
+- ✅ **Face recognition** (NEW) - Identify persons by name
 
 ---
 
@@ -35,13 +36,19 @@ HAR-System/
 │   ├── core/                   # Core tracking engine
 │   │   ├── __init__.py
 │   │   ├── tracker.py          # TemporalActivityTracker
-│   │   └── callbacks.py        # Frame processing
+│   │   ├── callbacks.py        # Frame processing
+│   │   └── face_identity_manager.py  # Face identity management (NEW)
+│   ├── integrations/           # External system integrations (NEW)
+│   │   ├── __init__.py
+│   │   └── hailo_face_recognition.py  # Face recognition integration
 │   ├── utils/                  # Utility functions
 │   │   ├── __init__.py
 │   │   └── cli.py              # CLI tools
 │   └── apps/                   # Applications
 │       ├── __init__.py
 │       ├── realtime_pose.py    # Main real-time app
+│       ├── train_faces.py      # Face training app (NEW)
+│       ├── manage_faces.py     # Face management app (NEW)
 │       └── chokepoint_analyzer.py  # ChokePoint dataset analyzer
 │
 ├── 🧪 examples/                # Examples & tests
@@ -92,8 +99,11 @@ pip install .
 ### 2. Run with Camera
 
 ```bash
-# Using module
+# Basic usage
 python3 -m har_system realtime --input rpi --show-fps
+
+# With face recognition (requires trained database)
+python3 -m har_system realtime --input rpi --show-fps --enable-face-recognition
 
 # Using installed command
 har-system --input rpi --show-fps
@@ -103,7 +113,27 @@ cd scripts
 ./run_with_camera.sh
 ```
 
-### 3. Run ChokePoint Dataset Analysis
+### 3. Face Recognition (NEW)
+
+```bash
+# Train face recognition with images
+# First, organize your images:
+mkdir -p train_faces/Ahmed train_faces/Sara
+# Add photos to each person's folder
+
+# Train the system
+python3 -m har_system train-faces --train-dir ./train_faces
+
+# Manage known faces
+python3 -m har_system faces --list              # List all known persons
+python3 -m har_system faces --remove Ahmed      # Remove a person
+python3 -m har_system faces --clear             # Clear database
+
+# Run with face recognition enabled
+python3 -m har_system realtime --input rpi --enable-face-recognition
+```
+
+### 4. Run ChokePoint Dataset Analysis
 
 ```bash
 # Analyze ChokePoint dataset
@@ -119,7 +149,7 @@ cd scripts
 
 For more details, see [CHOKEPOINT_README.md](CHOKEPOINT_README.md).
 
-### 4. Run Examples
+### 5. Run Examples
 
 ```bash
 # Using script (recommended)
@@ -145,6 +175,12 @@ HAR-System supports multiple commands via the unified CLI:
 # Main entry point
 python3 -m har_system <command> [options]
 
+# Available commands:
+#   realtime       - Real-time pose tracking with optional face recognition
+#   train-faces    - Train face recognition system
+#   faces          - Manage face database
+#   chokepoint     - Analyze ChokePoint dataset
+
 # Or using installed commands (after pip install)
 har-system [options]          # Real-time app
 har-chokepoint [options]      # ChokePoint analyzer
@@ -169,6 +205,9 @@ Options:
 ```bash
 # With Raspberry Pi camera
 python3 -m har_system realtime --input rpi --show-fps
+
+# With face recognition
+python3 -m har_system realtime --input rpi --enable-face-recognition
 
 # With USB camera
 python3 -m har_system realtime --input usb --show-fps
@@ -273,6 +312,13 @@ har_system:
   fall_detector:
     fall_drop_ratio: 0.30
     fall_time_threshold: 0.5
+  
+  # Face Recognition Settings (NEW)
+  face_recognition:
+    enabled: false                     # Enable/disable face recognition
+    confidence_threshold: 0.70         # Minimum confidence (0.0-1.0)
+    recognition_interval_frames: 15    # Check face every N frames
+    min_confirmations: 2               # Confirmations before trusting identity
 ```
 
 ---
@@ -286,11 +332,16 @@ har_system:
 [FRAME] 30 | Active People: 2
 ============================================================
 
-  [TRACK] 1:
+  [TRACK] 1 - Ahmed:               <- Name from face recognition
      Activity: moving
      Duration: 12.3s
      Normalized Distance: 45.67
      Moving: 85.2% | Stationary: 14.8%
+
+  [TRACK] 2 - Unknown:             <- Unknown person
+     Activity: standing
+     Duration: 5.8s
+     Stationary: 92.5%
 
   [GLOBAL] Statistics:
      Total People: 3
@@ -303,6 +354,7 @@ har_system:
 ```json
 {
   "track_id": 1,
+  "name": "Ahmed",               // <- Person name (NEW)
   "metadata": {
     "first_seen": 1736463421.234,
     "duration_seconds": 12.333

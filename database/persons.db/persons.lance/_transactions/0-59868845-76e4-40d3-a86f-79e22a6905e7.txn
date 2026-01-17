@@ -1,0 +1,3 @@
+$59868845-76e4-40d3-a86f-79e22a6905e7²ƒ 	global_id ÿÿÿÿÿÿÿÿÿ*string8label ÿÿÿÿÿÿÿÿÿ*string8;avg_embedding ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:512081last_sample_recieved_time ÿÿÿÿÿÿÿÿÿ*int648%samples_json ÿÿÿÿÿÿÿÿÿ*string8<#classificaiton_confidence_threshold ÿÿÿÿÿÿÿÿÿ*double8value ÿÿÿÿÿÿÿÿÿ*double8"!
+lance.auto_cleanup.interval20"'
+lance.auto_cleanup.older_than14days

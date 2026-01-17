@@ -77,6 +77,11 @@ class TemporalActivityTracker:
             'total_frames': 0,
             
             # ════════════════════════════════════
+            # Identity (Face Recognition)
+            # ════════════════════════════════════
+            'name': 'Unknown',  # Person name from face recognition
+            
+            # ════════════════════════════════════
             # Current State
             # ════════════════════════════════════
             'current_activity': 'unknown',
@@ -420,6 +425,34 @@ class TemporalActivityTracker:
         """Get current activity for a specific person"""
         return self.tracks[track_id]['current_activity']
     
+    def update_identity(self, track_id: int, name: str):
+        """
+        Update the identity (name) for a track
+        
+        Args:
+            track_id: Track ID
+            name: Person name
+        """
+        if track_id in self.tracks:
+            old_name = self.tracks[track_id]['name']
+            self.tracks[track_id]['name'] = name
+            if old_name != name and name != 'Unknown':
+                print(f"[IDENTITY] Track #{track_id} → {name}")
+    
+    def get_identity(self, track_id: int) -> str:
+        """
+        Get the identity (name) for a track
+        
+        Args:
+            track_id: Track ID
+        
+        Returns:
+            Person name or 'Unknown'
+        """
+        if track_id in self.tracks:
+            return self.tracks[track_id]['name']
+        return 'Unknown'
+    
     def get_summary(self, track_id: int) -> Optional[Dict]:
         """
         Get comprehensive summary for a specific person
@@ -442,6 +475,7 @@ class TemporalActivityTracker:
         
         return {
             'track_id': track_id,
+            'name': track.get('name', 'Unknown'),  # Include identity name
             'duration_seconds': duration,
             'total_frames': total_frames,
             'current_activity': track['current_activity'],
@@ -512,6 +546,7 @@ class TemporalActivityTracker:
         
         return {
             'track_id': track_id,
+            'name': track.get('name', 'Unknown'),  # Include identity name
             'metadata': {
                 'first_seen': track['first_seen'],
                 'last_seen': track['last_seen'],

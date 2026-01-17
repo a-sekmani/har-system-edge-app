@@ -19,6 +19,18 @@ har_system:
   fall_detector:
     fall_drop_ratio: 0.30       # Drop > 30% = potential fall
     fall_time_threshold: 0.5    # Within less than 0.5s
+  
+  # Face Recognition Settings
+  face_recognition:
+    enabled: false              # Set to true to enable face recognition
+    database_dir: "./database"  # Database directory
+    samples_dir: "./database/samples"  # Samples directory
+    recognition_interval_frames: 10    # Check face every N frames (reduced for better detection)
+    skip_first_frames: 3               # Skip first N frames (reduced)
+    confidence_threshold: 0.60         # Minimum confidence (reduced for testing)
+    min_confirmations: 1               # Minimum confirmations (reduced for faster recognition)
+    identity_timeout: 5.0              # Seconds before re-confirmation
+    max_faces_per_frame: 5             # Max faces to process
 
 display:
   # Display settings

@@ -32,7 +32,8 @@ hailo_logger = get_logger(__name__)
 class ChokePointCallbackHandler(app_callback_class):
     """Callback handler for processing ChokePoint frames"""
     
-    def __init__(self, video_name: str, frame_number: int, frame_width: int, frame_height: int):
+    def __init__(self, video_name: str, frame_number: int, frame_width: int, frame_height: int, 
+                 face_identity_manager=None, face_processor=None):
         """
         Initialize callback handler
         
@@ -41,12 +42,17 @@ class ChokePointCallbackHandler(app_callback_class):
             frame_number: Current frame number
             frame_width: Frame width in pixels
             frame_height: Frame height in pixels
+            face_identity_manager: FaceIdentityManager instance (optional)
+            face_processor: FaceRecognitionProcessor instance (optional)
         """
         super().__init__()
         self.video_name = video_name
         self.frame_number = frame_number
         self.frame_width = frame_width
         self.frame_height = frame_height
+        self.face_identity_manager = face_identity_manager
+        self.face_processor = face_processor
+        self.current_frame = None  # Store current frame for face recognition
         self.detections = []  # List of results: [(person_id, left_x, left_y, right_x, right_y), ...]
         self.processing_complete = False
         self.processing_event = threading.Event()  # Event to signal when processing is complete
@@ -55,11 +61,12 @@ class ChokePointCallbackHandler(app_callback_class):
         """Get extracted detections"""
         return self.detections
     
-    def reset(self, frame_number: int, frame_width: int, frame_height: int):
+    def reset(self, frame_number: int, frame_width: int, frame_height: int, frame_image=None):
         """Reset handler for new frame"""
         self.frame_number = frame_number
         self.frame_width = frame_width
         self.frame_height = frame_height
+        self.current_frame = frame_image
         self.detections = []
         self.processing_complete = False
         self.processing_event.clear()
@@ -109,8 +116,55 @@ def chokepoint_frame_callback(element, buffer, user_data):
             
             if eye_data is not None:
                 person_id, left_x, left_y, right_x, right_y = eye_data
-                user_data.detections.append((person_id, left_x, left_y, right_x, right_y))
-                hailo_logger.debug(f"Added detection: person_id={person_id}")
+                
+                # Try face recognition if enabled and frame available
+                person_identifier = "-1"  # Default to unknown
+                
+                if user_data.face_processor and user_data.current_frame is not None:
+                    try:
+                        # Extract keypoints and bbox from detection
+                        bbox_obj = detection.get_bbox()
+                        bbox = {
+                            'xmin': bbox_obj.xmin(),
+                            'ymin': bbox_obj.ymin(),
+                            'xmax': bbox_obj.xmax(),
+                            'ymax': bbox_obj.ymax()
+                        }
+                        
+                        # Get keypoints
+                        landmarks = detection.get_objects_typed(hailo.HAILO_LANDMARKS)
+                        if landmarks:
+                            points = landmarks[0].get_points()
+                            keypoints_dict = {}
+                            for name, idx in keypoint_map.items():
+                                if idx < len(points):
+                                    p = points[idx]
+                                    keypoints_dict[name] = (p.x(), p.y(), p.confidence())
+                            
+                            # Perform face recognition
+                            name, confidence, global_id = user_data.face_processor.recognize_from_keypoints(
+                                user_data.current_frame, keypoints_dict, bbox, 
+                                user_data.frame_width, user_data.frame_height
+                            )
+                            
+                            # Update identity manager
+                            if name != "Unknown":
+                                updated = user_data.face_identity_manager.update_identity(
+                                    person_id, name, confidence, global_id
+                                )
+                                if updated:
+                                    hailo_logger.info(f"[RECOGNITION] Track #{person_id} recognized as: {name} ({confidence:.2f})")
+                            
+                            # Get final identity
+                            final_name = user_data.face_identity_manager.get_identity(person_id)
+                            person_identifier = final_name if final_name != "Unknown" else "-1"
+                    
+                    except Exception as e:
+                        hailo_logger.warning(f"Face recognition error: {e}")
+                        person_identifier = "-1"
+                
+                user_data.detections.append((person_identifier, left_x, left_y, right_x, right_y))
+                hailo_logger.debug(f"Added detection: person_id={person_identifier}")
     except Exception as e:
         hailo_logger.warning(f"Error in callback: {e}")
         import traceback
@@ -126,17 +180,70 @@ def chokepoint_frame_callback(element, buffer, user_data):
 class ChokePointAnalyzer:
     """ChokePoint dataset analyzer"""
     
-    def __init__(self, dataset_path: str, results_dir: str = "./results"):
+    def __init__(self, dataset_path: str, results_dir: str = "./results", 
+                 enable_face_recognition: bool = False, database_dir: str = "./database"):
         """
         Initialize analyzer
         
         Args:
             dataset_path: Path to test_dataset/choke_point folder
             results_dir: Results output directory
+            enable_face_recognition: Enable face recognition (default: False)
+            database_dir: Face recognition database directory (default: ./database)
         """
         self.dataset_path = Path(dataset_path)
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Face recognition
+        self.enable_face_recognition = enable_face_recognition
+        self.face_identity_manager = None
+        self.face_processor = None
+        
+        if enable_face_recognition:
+            try:
+                from har_system.core import FaceIdentityManager
+                from har_system.core.face_processor import FaceRecognitionProcessor
+                
+                # Load config
+                config_file = Path("config/default.yaml")
+                face_recognition_config = {}
+                if config_file.exists():
+                    import yaml
+                    with open(config_file, 'r') as f:
+                        full_config = yaml.safe_load(f)
+                        face_recognition_config = full_config.get('har_system', {}).get('face_recognition', {})
+                
+                # Create face identity manager
+                self.face_identity_manager = FaceIdentityManager(
+                    min_confirmations=face_recognition_config.get('min_confirmations', 1),
+                    identity_timeout=face_recognition_config.get('identity_timeout', 5.0)
+                )
+                
+                # Create face processor
+                self.face_processor = FaceRecognitionProcessor(
+                    database_dir=database_dir,
+                    samples_dir=f"{database_dir}/samples",
+                    confidence_threshold=face_recognition_config.get('confidence_threshold', 0.60)
+                )
+                
+                if self.face_processor.is_enabled():
+                    stats = self.face_processor.get_database_stats()
+                    print(f"[FACE-RECOG] Face recognition enabled")
+                    print(f"[FACE-RECOG] Database: {stats.get('total_persons', 0)} persons")
+                    if stats.get('persons'):
+                        print(f"[FACE-RECOG] Known persons: {', '.join(stats.get('persons', []))}")
+                else:
+                    print(f"[WARNING] Face recognition disabled (database not available)")
+                    self.enable_face_recognition = False
+                    self.face_identity_manager = None
+                    self.face_processor = None
+                    
+            except Exception as e:
+                print(f"[WARNING] Failed to initialize face recognition: {e}")
+                import traceback
+                traceback.print_exc()
+                self.enable_face_recognition = False
         
         # Keypoint mapping
         self.keypoint_map = get_keypoint_mapping()
@@ -191,7 +298,7 @@ class ChokePointAnalyzer:
                     # Give time for EOS to propagate
                     time.sleep(0.1)
                 
-                # Stop main loop
+                # Stop main loop (will be recreated for next video)
                 if self.app.loop and self.app.loop.is_running():
                     hailo_logger.debug("Quitting main loop")
                     self.app.loop.quit()
@@ -209,6 +316,7 @@ class ChokePointAnalyzer:
             except Exception as e:
                 hailo_logger.debug(f"Error during pipeline cleanup: {e}")
             finally:
+                # Clear all references
                 self.app = None
                 self.appsrc = None
                 self.user_data = None
@@ -267,7 +375,9 @@ class ChokePointAnalyzer:
                 "", 
                 0, 
                 frame_width, 
-                frame_height
+                frame_height,
+                self.face_identity_manager,
+                self.face_processor
             )
             
             # Create application (pipeline will be created here)
@@ -301,11 +411,10 @@ class ChokePointAnalyzer:
             from hailo_apps.python.core.gstreamer.gstreamer_common import disable_qos
             disable_qos(self.app.pipeline)
             
-            # Create main loop if it doesn't exist
+            # Create NEW main loop for this video (don't reuse old one)
             self.running = True
-            if self.app.loop is None:
-                hailo_logger.debug("Creating new GLib.MainLoop")
-                self.app.loop = GLib.MainLoop()
+            hailo_logger.debug("Creating new GLib.MainLoop")
+            self.app.loop = GLib.MainLoop()
             
             # Start main loop in a separate thread (required for callbacks to work)
             hailo_logger.debug("Starting main loop thread...")
@@ -354,8 +463,8 @@ class ChokePointAnalyzer:
         image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         frame_width, frame_height = image_rgb.shape[1], image_rgb.shape[0]
         
-        # Reset user_data for new frame
-        self.user_data.reset(frame_number, frame_width, frame_height)
+        # Reset user_data for new frame (pass image for face recognition)
+        self.user_data.reset(frame_number, frame_width, frame_height, image_rgb)
         
         # Create buffer from image
         buffer = Gst.Buffer.new_wrapped(image_rgb.tobytes())
@@ -380,7 +489,8 @@ class ChokePointAnalyzer:
         # Process pending events to allow pipeline to process buffer
         # This is crucial - without processing events, buffer won't flow through pipeline
         import time
-        for _ in range(20):  # Try for up to 2 seconds (20 * 0.1)
+        max_wait_iterations = 50  # Increase timeout to 5 seconds (50 * 0.1)
+        for i in range(max_wait_iterations):
             # Process pending GLib events
             context = GLib.MainContext.default()
             while context.pending():
@@ -390,10 +500,16 @@ class ChokePointAnalyzer:
             if self.user_data.processing_complete:
                 break
             
+            # Log warning if taking too long
+            if i == 30:  # After 3 seconds
+                hailo_logger.warning(f"Frame {frame_number} taking longer than expected...")
+            
             time.sleep(0.1)
         
         if not self.user_data.processing_complete:
-            hailo_logger.warning(f"Timeout waiting for callback for frame {frame_number}")
+            hailo_logger.warning(f"Timeout waiting for callback for frame {frame_number} after {max_wait_iterations * 0.1}s")
+            # Return empty detections instead of hanging
+            return []
         else:
             hailo_logger.debug(f"Callback completed for frame {frame_number}")
         
@@ -409,6 +525,11 @@ class ChokePointAnalyzer:
         print(f"\n{'='*60}")
         print(f"[PROCESSING] Processing video: {video_name}")
         print(f"{'='*60}")
+        
+        # Reset face identity manager for new video
+        if self.face_identity_manager:
+            self.face_identity_manager.reset()
+            print("[FACE-RECOG] Face identity manager reset for new video")
         
         # Get all frames
         frame_files = self.get_frame_files(video_folder)
@@ -477,7 +598,11 @@ class ChokePointAnalyzer:
                     frame_number = idx
                 
                 # Process image (pushes to appsrc)
-                detections = self.process_image(frame_file, frame_number)
+                try:
+                    detections = self.process_image(frame_file, frame_number)
+                except Exception as e:
+                    hailo_logger.warning(f"Error processing frame {frame_number}: {e}")
+                    detections = []
                 
                 # Add results
                 for person_id, left_x, left_y, right_x, right_y in detections:
@@ -493,6 +618,7 @@ class ChokePointAnalyzer:
                 # Print progress
                 if (idx + 1) % 100 == 0:
                     print(f"[PROGRESS] Processed {idx + 1}/{len(frame_files)} frames (detections: {len(video_results)})")
+                    sys.stdout.flush()  # Force flush to see progress
         
         except KeyboardInterrupt:
             print("\n[INTERRUPT] Processing interrupted by user")
@@ -584,11 +710,27 @@ def main():
         default='./results',
         help='Results output directory (default: ./results)'
     )
+    parser.add_argument(
+        '--enable-face-recognition',
+        action='store_true',
+        help='Enable face recognition (person_id will be name or -1)'
+    )
+    parser.add_argument(
+        '--database-dir',
+        type=str,
+        default='./database',
+        help='Face recognition database directory (default: ./database)'
+    )
     
     args = parser.parse_args()
     
     # Create analyzer and run
-    analyzer = ChokePointAnalyzer(args.dataset_path, args.results_dir)
+    analyzer = ChokePointAnalyzer(
+        args.dataset_path, 
+        args.results_dir,
+        enable_face_recognition=args.enable_face_recognition,
+        database_dir=args.database_dir
+    )
     analyzer.run()
 
 
