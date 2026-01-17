@@ -184,25 +184,36 @@ class ChokePointAnalyzer:
         
         if self.app is not None:
             try:
+                # Send EOS to appsrc to gracefully finish processing
+                if self.appsrc:
+                    hailo_logger.debug("Sending EOS to appsrc")
+                    self.appsrc.emit("end-of-stream")
+                    # Give time for EOS to propagate
+                    time.sleep(0.1)
+                
                 # Stop main loop
                 if self.app.loop and self.app.loop.is_running():
+                    hailo_logger.debug("Quitting main loop")
                     self.app.loop.quit()
                 
-                # Set to NULL state to stop processing
+                # Wait for loop thread to finish first
+                if self.loop_thread and self.loop_thread.is_alive():
+                    hailo_logger.debug("Waiting for loop thread to finish")
+                    self.loop_thread.join(timeout=2.0)
+                
+                # Now set to NULL state
+                hailo_logger.debug("Setting pipeline to NULL state")
                 self.app.pipeline.set_state(Gst.State.NULL)
-                # Wait for state change with timeout (don't block forever!)
-                self.app.pipeline.get_state(2 * Gst.SECOND)
+                # Don't wait for state change - just set and move on
+                
             except Exception as e:
                 hailo_logger.debug(f"Error during pipeline cleanup: {e}")
             finally:
-                # Wait for loop thread to finish
-                if self.loop_thread and self.loop_thread.is_alive():
-                    self.loop_thread.join(timeout=1.0)
-                
                 self.app = None
                 self.appsrc = None
                 self.user_data = None
                 self.loop_thread = None
+                hailo_logger.debug("Pipeline cleanup completed")
     
     def find_video_folders(self) -> List[Path]:
         """Find all video folders"""
