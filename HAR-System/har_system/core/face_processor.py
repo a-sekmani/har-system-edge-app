@@ -18,6 +18,8 @@ try:
     from hailo_apps.python.core.common.db_handler import DatabaseHandler, Record
     HAILO_AVAILABLE = True
 except ImportError:
+    # Keep the module importable even if hailo-apps/GStreamer bindings are missing.
+    # In that case, face recognition is disabled gracefully at runtime.
     HAILO_AVAILABLE = False
     print("[FACE-PROCESSOR] Warning: Hailo components not available")
 
@@ -148,8 +150,8 @@ class FaceRecognitionProcessor:
         """
         Recognize person from frame using keypoints
         
-        Note: This is a simplified version that uses pose keypoints.
-        For full face recognition, you would need to:
+        Note: This is a simplified/placeholder implementation that uses pose keypoints
+        to crop a face region. For a full face recognition pipeline, you would need to:
         1. Run SCRFD face detection on the cropped region
         2. Extract face embedding using MobileFaceNet
         3. Search in LanceDB
@@ -181,10 +183,9 @@ class FaceRecognitionProcessor:
             
             print(f"[FACE-PROCESSOR] Face region extracted: {face_region.shape}")
             
-            # TODO: For full implementation, run face detection + embedding extraction here
-            # For now, we use a simplified approach:
-            # - If we have the person in database, we use geometric matching
-            # - This is a placeholder that should be replaced with actual face recognition
+            # TODO: Replace this heuristic with the real SCRFD + MobileFaceNet pipeline.
+            # For now, we fall back to a lightweight (and inaccurate) heuristic to keep
+            # the integration points working end-to-end.
             
             # Get all known persons
             records = self.db_handler.get_all_records()

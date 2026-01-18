@@ -14,6 +14,7 @@ project_root = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(project_root))
 
 from har_system.integrations import HailoFaceRecognition
+from har_system.utils.cli import add_faces_arguments
 
 
 def main():
@@ -36,48 +37,20 @@ Examples:
   python3 -m har_system faces --clear
         """
     )
-    
-    parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Database directory (default: ./database)'
-    )
-    
-    parser.add_argument(
-        '--list',
-        action='store_true',
-        help='List all known persons'
-    )
-    
-    parser.add_argument(
-        '--remove',
-        type=str,
-        metavar='NAME',
-        help='Remove a person from database'
-    )
-    
-    parser.add_argument(
-        '--clear',
-        action='store_true',
-        help='Clear entire database (WARNING: cannot be undone!)'
-    )
-    
-    parser.add_argument(
-        '--stats',
-        action='store_true',
-        help='Show database statistics'
-    )
+
+    # Use the shared argument definitions (single source of truth).
+    add_faces_arguments(parser)
     
     args = parser.parse_args()
     
-    # Initialize face recognition
+    # Initialize the face recognition wrapper (LanceDB via hailo-apps DatabaseHandler).
     face_recog = HailoFaceRecognition(
         database_dir=args.database_dir,
         samples_dir=f"{args.database_dir}/samples"
     )
     
     if not face_recog.is_enabled():
+        # This typically means hailo-apps (or its DB deps) are not installed/available.
         print("[ERROR] Face recognition system could not be initialized")
         print()
         print("Please ensure:")

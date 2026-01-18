@@ -8,7 +8,7 @@ import time
 from typing import Dict, Optional, Any
 from collections import defaultdict
 
-
+# This class is used to create the Face Identity Manager.
 class FaceIdentityManager:
     """
     Manages the mapping between track IDs and person identities
@@ -67,7 +67,8 @@ class FaceIdentityManager:
                 }
             return False
         
-        # Add to candidates
+        # Add this recognition result as a "candidate".
+        # We require multiple consistent candidates before we mark an identity as confirmed.
         candidate = {
             'name': name,
             'global_id': global_id,
@@ -76,7 +77,7 @@ class FaceIdentityManager:
         }
         self.identity_candidates[track_id].append(candidate)
         
-        # Keep only recent candidates (last 5 seconds)
+        # Keep only recent candidates (rolling time window).
         self.identity_candidates[track_id] = [
             c for c in self.identity_candidates[track_id]
             if current_time - c['timestamp'] < 5.0

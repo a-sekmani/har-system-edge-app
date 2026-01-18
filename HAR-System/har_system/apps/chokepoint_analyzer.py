@@ -5,12 +5,11 @@ ChokePoint Dataset Analyzer
 Analyze ChokePoint dataset to test person tracking capabilities
 """
 
-import os
 import sys
 import cv2
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 import threading
 import time
 import gi
@@ -22,16 +21,87 @@ from hailo_apps.python.pipeline_apps.pose_estimation.pose_estimation_pipeline im
 )
 from hailo_apps.python.core.common.hailo_logger import get_logger
 from hailo_apps.python.core.gstreamer.gstreamer_app import app_callback_class
+from hailo_apps.python.core.gstreamer.gstreamer_helper_pipelines import (
+    SOURCE_PIPELINE,
+    INFERENCE_PIPELINE,
+    INFERENCE_PIPELINE_WRAPPER,
+    TRACKER_PIPELINE,
+    USER_CALLBACK_PIPELINE,
+    DISPLAY_PIPELINE,
+)
 
 # Import HAR-System components
 from har_system.core.callbacks import get_keypoint_mapping, extract_eye_positions
 
 hailo_logger = get_logger(__name__)
 
+class ChokePointPoseEstimationApp(GStreamerPoseEstimationApp):
+    """Custom Pose Estimation App with no-display option support for ChokePoint"""
+
+    # This method is used to initialize the ChokePoint Pose Estimation App.
+    def __init__(self, app_callback, user_data, parser=None, no_display=False):
+        self.no_display = no_display
+        super().__init__(app_callback, user_data, parser)
+    
+    def get_pipeline_string(self):
+        """Override to support no-display mode safely."""
+        hailo_logger.debug("Building ChokePoint pipeline string...")
+        
+        # This method is used to build the ChokePoint source pipeline.
+        source_pipeline = SOURCE_PIPELINE(
+            video_source=self.video_source,
+            video_width=self.video_width,
+            video_height=self.video_height,
+            frame_rate=self.frame_rate,
+            sync=self.sync,
+        )
+        # This method is used to build the ChokePoint inference pipeline.
+        infer_pipeline = INFERENCE_PIPELINE(
+            hef_path=self.hef_path,
+            post_process_so=self.post_process_so,
+            post_function_name=self.post_process_function,
+            batch_size=self.batch_size,
+        )
+        # This method is used to build the ChokePoint inference pipeline wrapper.
+        infer_pipeline_wrapper = INFERENCE_PIPELINE_WRAPPER(infer_pipeline)
+        tracker_pipeline = TRACKER_PIPELINE(class_id=0)
+        user_callback_pipeline = USER_CALLBACK_PIPELINE()
+        
+        # Use a non-rendering sink if display is disabled, otherwise use regular display.
+        # Keep a fpsdisplaysink element named "hailo_display" to remain compatible with
+        # the parent app's FPS hooks when enabled.
+        if self.no_display:
+            display_pipeline = (
+                "fpsdisplaysink name=hailo_display "
+                "video-sink=fakesink "
+                "sync=false "
+                "text-overlay=false "
+                "signal-fps-measurements=true"
+            )
+        else:
+            display_pipeline = DISPLAY_PIPELINE(
+                video_sink=self.video_sink, 
+                sync=self.sync, 
+                show_fps=self.show_fps
+            )
+
+        pipeline_string = (
+            f"{source_pipeline} ! "
+            f"{infer_pipeline_wrapper} ! "
+            f"{tracker_pipeline} ! "
+            f"{user_callback_pipeline} ! "
+            f"{display_pipeline}"
+        )
+        hailo_logger.debug("Pipeline string: %s", pipeline_string)
+        return pipeline_string
+
 
 class ChokePointCallbackHandler(app_callback_class):
     """Callback handler for processing ChokePoint frames"""
+    # Purpose: keep per-video/frame metadata and expose the current RGB frame
+    # for optional face recognition (if enabled).
     
+    # This method is used to initialize the ChokePoint Callback Handler.
     def __init__(self, video_name: str, frame_number: int, frame_width: int, frame_height: int, 
                  face_identity_manager=None, face_processor=None):
         """
@@ -57,10 +127,12 @@ class ChokePointCallbackHandler(app_callback_class):
         self.processing_complete = False
         self.processing_event = threading.Event()  # Event to signal when processing is complete
     
+    # This method is used to get the extracted detections.
     def get_detections(self):
         """Get extracted detections"""
         return self.detections
-    
+
+    # This method is used to reset the ChokePoint Callback Handler.
     def reset(self, frame_number: int, frame_width: int, frame_height: int, frame_image=None):
         """Reset handler for new frame"""
         self.frame_number = frame_number
@@ -70,7 +142,6 @@ class ChokePointCallbackHandler(app_callback_class):
         self.detections = []
         self.processing_complete = False
         self.processing_event.clear()
-
 
 def chokepoint_frame_callback(element, buffer, user_data):
     """
@@ -176,12 +247,12 @@ def chokepoint_frame_callback(element, buffer, user_data):
         user_data.processing_event.set()
         hailo_logger.debug(f"Callback completed for frame {user_data.frame_number}, detections: {len(user_data.detections)}")
 
-
 class ChokePointAnalyzer:
     """ChokePoint dataset analyzer"""
     
     def __init__(self, dataset_path: str, results_dir: str = "./results", 
-                 enable_face_recognition: bool = False, database_dir: str = "./database"):
+                 enable_face_recognition: bool = False, database_dir: str = "./database",
+                 no_display: bool = False):
         """
         Initialize analyzer
         
@@ -190,10 +261,12 @@ class ChokePointAnalyzer:
             results_dir: Results output directory
             enable_face_recognition: Enable face recognition (default: False)
             database_dir: Face recognition database directory (default: ./database)
+            no_display: Disable video display (default: False)
         """
         self.dataset_path = Path(dataset_path)
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(parents=True, exist_ok=True)
+        self.no_display = no_display
         
         # Face recognition
         self.enable_face_recognition = enable_face_recognition
@@ -261,6 +334,7 @@ class ChokePointAnalyzer:
         self.loop_thread = None
         self.running = False
     
+    # This method is used to handle the bus messages.
     def _bus_message_handler(self, bus, message, user_data):
         """Handle bus messages"""
         if message.type == Gst.MessageType.ERROR:
@@ -271,6 +345,7 @@ class ChokePointAnalyzer:
             hailo_logger.debug("Pipeline EOS")
         return True
     
+    # This method is used to run the GLib main loop in a separate thread.
     def _run_main_loop(self):
         """Run GLib main loop in separate thread"""
         try:
@@ -285,6 +360,7 @@ class ChokePointAnalyzer:
             import traceback
             hailo_logger.debug(traceback.format_exc())
     
+    # This method is used to clean up the pipeline resources.
     def cleanup_pipeline(self):
         """Clean up pipeline resources immediately"""
         self.running = False
@@ -323,6 +399,7 @@ class ChokePointAnalyzer:
                 self.loop_thread = None
                 hailo_logger.debug("Pipeline cleanup completed")
     
+    # This method is used to find the video folders.
     def find_video_folders(self) -> List[Path]:
         """Find all video folders"""
         choke_point_dir = self.dataset_path / "choke_point"
@@ -332,6 +409,7 @@ class ChokePointAnalyzer:
         video_folders = [d for d in choke_point_dir.iterdir() if d.is_dir()]
         return sorted(video_folders)
     
+    # This method is used to get the frame files.
     def get_frame_files(self, video_folder: Path) -> List[Path]:
         """Get all frame files sorted"""
         # Search for all images starting with 00000000
@@ -343,6 +421,7 @@ class ChokePointAnalyzer:
         frame_files.sort(key=lambda x: x.name)
         return frame_files
     
+    # This method is used to get the image dimensions.
     def get_image_dimensions(self, image_path: Path) -> Tuple[int, int]:
         """Get image dimensions"""
         image = cv2.imread(str(image_path))
@@ -351,6 +430,7 @@ class ChokePointAnalyzer:
         height, width = image.shape[:2]
         return (width, height)
     
+    # This method is used to create the GStreamer pipeline with appsrc.
     def create_pipeline_with_appsrc(self, frame_width: int, frame_height: int):
         """
         Create GStreamer pipeline with appsrc for feeding images manually
@@ -381,10 +461,11 @@ class ChokePointAnalyzer:
             )
             
             # Create application (pipeline will be created here)
-            self.app = GStreamerPoseEstimationApp(
+            self.app = ChokePointPoseEstimationApp(
                 chokepoint_frame_callback, 
                 self.user_data,
-                parser=parser
+                parser=parser,
+                no_display=self.no_display
             )
             
             # Get appsrc element
@@ -436,6 +517,7 @@ class ChokePointAnalyzer:
             # Restore sys.argv
             sys.argv = original_argv
     
+    # This method is used to process the image.
     def process_image(self, image_path: Path, frame_number: int) -> List[Tuple]:
         """
         Process a single image by pushing it to appsrc
@@ -518,7 +600,7 @@ class ChokePointAnalyzer:
         hailo_logger.debug(f"Returning {len(detections)} detections for frame {frame_number}")
         return detections
     
-    
+    # This method is used to process the video folder.
     def process_video_folder(self, video_folder: Path):
         """Process a single video folder"""
         video_name = video_folder.name
@@ -633,6 +715,7 @@ class ChokePointAnalyzer:
         
         print(f"[DONE] Completed processing {video_name}: {len(video_results)} results")
     
+    # This method is used to save the video results.
     def save_video_results(self, video_name: str):
         """Save results for a single video to txt file"""
         if video_name not in self.results:
@@ -661,6 +744,9 @@ class ChokePointAnalyzer:
         print("="*60)
         print(f"[INFO] Dataset path: {self.dataset_path}")
         print(f"[INFO] Results directory: {self.results_dir}")
+        print(f"[INFO] Face recognition: {'ENABLED' if self.enable_face_recognition else 'DISABLED'}")
+        print(f"[INFO] Display: {'DISABLED (performance mode)' if self.no_display else 'ENABLED'}")
+        print()
         
         # Find video folders
         video_folders = self.find_video_folders()
@@ -690,37 +776,18 @@ class ChokePointAnalyzer:
         print("[COMPLETE] Analysis completed!")
         print("="*60)
 
-
+# This method is used to main entry point.
 def main():
     """Main entry point"""
     import argparse
+    from har_system.utils.cli import add_chokepoint_arguments
     
     parser = argparse.ArgumentParser(
         description="ChokePoint Dataset Analyzer - Analyze ChokePoint dataset"
     )
-    parser.add_argument(
-        '--dataset-path',
-        type=str,
-        default='./test_dataset',
-        help='Path to test_dataset folder (default: ./test_dataset)'
-    )
-    parser.add_argument(
-        '--results-dir',
-        type=str,
-        default='./results',
-        help='Results output directory (default: ./results)'
-    )
-    parser.add_argument(
-        '--enable-face-recognition',
-        action='store_true',
-        help='Enable face recognition (person_id will be name or -1)'
-    )
-    parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Face recognition database directory (default: ./database)'
-    )
+
+    # Use the shared argument definitions (single source of truth).
+    add_chokepoint_arguments(parser)
     
     args = parser.parse_args()
     
@@ -729,7 +796,8 @@ def main():
         args.dataset_path, 
         args.results_dir,
         enable_face_recognition=args.enable_face_recognition,
-        database_dir=args.database_dir
+        database_dir=args.database_dir,
+        no_display=args.no_display
     )
     analyzer.run()
 

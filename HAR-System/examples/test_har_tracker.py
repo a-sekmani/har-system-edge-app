@@ -13,7 +13,8 @@ import numpy as np
 from sys import path
 from pathlib import Path
 
-# Add parent directory to path
+# Allow running this file directly without installing the package.
+# If you installed HAR-System via pip, this sys.path tweak is not required.
 path.insert(0, str(Path(__file__).resolve().parent.parent))
 from har_system import TemporalActivityTracker
 

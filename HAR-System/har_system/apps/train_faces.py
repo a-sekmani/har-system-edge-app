@@ -16,7 +16,6 @@ sys.path.insert(0, str(project_root))
 
 from har_system.integrations import HailoFaceRecognition
 
-
 def main(train_dir='./train_faces', database_dir='./database', confidence_threshold=0.70):
     """
     Main training entry point - uses hailo-apps face_recognition for actual training
@@ -31,7 +30,7 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
     print("="*60)
     print()
     
-    # Check if train directory exists
+    # Validate input directories and basic structure (one folder per person).
     train_dir = Path(train_dir).resolve()
     database_dir = Path(database_dir).resolve()
     
@@ -57,7 +56,7 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
     print(f"[CONFIG] Confidence Threshold: {confidence_threshold}")
     print()
     
-    # Scan and display found persons
+    # Scan and display found persons (helps confirm the folder layout before training).
     print(f"[SCAN] Found {len(subdirs)} person(s) to train:")
     total_images = 0
     for person_dir in subdirs:
@@ -72,11 +71,12 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
         print("[ERROR] No images found!")
         sys.exit(1)
     
-    # Try to import hailo-apps face_recognition
+    # Training is delegated to hailo-apps' face_recognition pipeline.
     print("[TRAINING] Starting face recognition training...")
     print()
     
-    # Try using the automatic training script first
+    # Prefer the provided shell script (it prepares hailo-apps directories and runs training).
+    # This keeps Python-side glue minimal and matches the expected hailo-apps workflow.
     script_path = project_root / "scripts" / "train_faces_auto.sh"
     
     if script_path.exists():
@@ -125,7 +125,7 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
             print(f"  ✓ Copied {person_dir.name}")
         print()
         
-        # Prepare arguments for face_recognition
+        # Reuse hailo-apps CLI-style entry point by temporarily populating sys.argv.
         original_argv = sys.argv.copy()
         try:
             # Set mode to train

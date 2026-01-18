@@ -1,24 +1,17 @@
 #!/bin/bash
 # HAR-System: Run Examples
 
+# Get the script's directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 echo "=================================================="
 echo "HAR-System: Examples"
 echo "=================================================="
 echo ""
 
-# Navigate to correct directory
-cd "$(dirname "$0")/.."
-
-# Check environment
-if [ ! -d "../venv_hailo_apps" ]; then
-    echo "[ERROR] Virtual environment not found"
-    echo "   Please run: cd ~/hailo-apps && source setup_env.sh"
-    exit 1
-fi
-
-# Activate environment
-echo "[SETUP] Activating virtual environment..."
-source ../setup_env.sh
+# Change to project root
+cd "$PROJECT_ROOT"
 
 # Check if specific example is requested
 if [ "$1" = "test" ] || [ "$1" = "tracker" ]; then

@@ -6,29 +6,33 @@ Run HAR-System as a module with different commands:
 
     python3 -m har_system realtime [options]    # Real-time pose tracking
     python3 -m har_system chokepoint [options]  # ChokePoint dataset analysis
+
+- This file acts as a CLI dispatcher: it parses the top-level command and forwards it
+  to the appropriate app inside `har_system/apps/`.
+- We keep a single entry point (`python3 -m har_system ...`) while reusing each app's
+  existing CLI logic (e.g., `realtime_pose.py`).
 """
 
 import sys
 import argparse
 from pathlib import Path
 
-# Add parent directory to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+# Import shared CLI argument definitions 
+from har_system.utils.cli import (
+    add_realtime_arguments,
+    add_train_faces_arguments,
+    add_faces_arguments,
+    add_chokepoint_arguments,
+)
 
 
 def main():
-    """Main CLI dispatcher"""
+    """Main CLI dispatcher."""
     parser = argparse.ArgumentParser(
         description="HAR-System: Human Activity Recognition System",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Real-time pose tracking
-  python3 -m har_system realtime --input rpi --show-fps
-  
-  # ChokePoint dataset analysis
-  python3 -m har_system chokepoint --dataset-path ./test_dataset
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -38,134 +42,34 @@ Examples:
         'realtime',
         help='Real-time human pose tracking and activity recognition'
     )
-    realtime_parser.add_argument(
-        '--enable-face-recognition',
-        action='store_true',
-        help='Enable face recognition (requires trained database)'
-    )
-    realtime_parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Face recognition database directory (default: ./database)'
-    )
-    realtime_parser.add_argument(
-        '--input', '-i',
-        type=str,
-        default='rpi',
-        help='Video source: rpi, usb, /dev/videoX, or video file'
-    )
-    realtime_parser.add_argument(
-        '--show-fps', '-f',
-        action='store_true',
-        help='Show FPS counter'
-    )
-    realtime_parser.add_argument(
-        '--verbose', '-v',
-        action='store_true',
-        help='Show detailed information'
-    )
-    realtime_parser.add_argument(
-        '--save-data',
-        action='store_true',
-        help='Save data to JSON files'
-    )
-    realtime_parser.add_argument(
-        '--output-dir',
-        type=str,
-        default='./results/camera',
-        help='Data save directory (default: ./results/camera)'
-    )
-    realtime_parser.add_argument(
-        '--print-interval',
-        type=int,
-        default=30,
-        help='Print summary every N frames (default: 30)'
-    )
+    add_realtime_arguments(realtime_parser)
     
     # Face training command
     train_parser = subparsers.add_parser(
         'train-faces',
         help='Train face recognition with images'
     )
-    train_parser.add_argument(
-        '--train-dir',
-        type=str,
-        default='./train_faces',
-        help='Directory with training images (default: ./train_faces)'
-    )
-    train_parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Database directory (default: ./database)'
-    )
-    train_parser.add_argument(
-        '--confidence-threshold',
-        type=float,
-        default=0.70,
-        help='Recognition confidence threshold (default: 0.70)'
-    )
+    add_train_faces_arguments(train_parser)
     
     # Face management command
     faces_parser = subparsers.add_parser(
         'faces',
         help='Manage face recognition database'
     )
-    faces_parser.add_argument(
-        '--list',
-        action='store_true',
-        help='List all known persons'
-    )
-    faces_parser.add_argument(
-        '--remove',
-        type=str,
-        metavar='NAME',
-        help='Remove a person from database'
-    )
-    faces_parser.add_argument(
-        '--clear',
-        action='store_true',
-        help='Clear entire database'
-    )
-    faces_parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Database directory (default: ./database)'
-    )
+    add_faces_arguments(faces_parser)
     
     # ChokePoint analysis command
     chokepoint_parser = subparsers.add_parser(
         'chokepoint',
         help='Analyze ChokePoint dataset for person tracking'
     )
-    chokepoint_parser.add_argument(
-        '--dataset-path',
-        type=str,
-        default='./test_dataset',
-        help='Path to test_dataset folder (default: ./test_dataset)'
-    )
-    chokepoint_parser.add_argument(
-        '--results-dir',
-        type=str,
-        default='./results',
-        help='Results output directory (default: ./results)'
-    )
-    chokepoint_parser.add_argument(
-        '--enable-face-recognition',
-        action='store_true',
-        help='Enable face recognition (person_id will be name or -1)'
-    )
-    chokepoint_parser.add_argument(
-        '--database-dir',
-        type=str,
-        default='./database',
-        help='Face recognition database directory (default: ./database)'
-    )
+    add_chokepoint_arguments(chokepoint_parser)
     
+    # Parse CLI arguments.
     args = parser.parse_args()
     
+    # If no sub-command was provided, show help and exit with code 1
+    # (useful for scripts/automation).
     if not args.command:
         parser.print_help()
         sys.exit(1)
@@ -173,6 +77,7 @@ Examples:
     # Dispatch to appropriate application
     if args.command == 'train-faces':
         from har_system.apps.train_faces import main as train_main
+        # Call training directly as a Python function (no need to manipulate sys.argv here).
         train_main(
             train_dir=args.train_dir,
             database_dir=args.database_dir,
@@ -181,23 +86,29 @@ Examples:
     
     elif args.command == 'faces':
         from har_system.apps.manage_faces import main as faces_main
+        # `manage_faces.main()` is implemented as a standalone CLI that reads sys.argv.
+        # To reuse it, we populate sys.argv based on the parsed arguments above.
         original_argv = sys.argv.copy()
         try:
             sys.argv = ['manage_faces']
-            if args.list:
+            if getattr(args, 'list', False):
                 sys.argv.append('--list')
-            if args.remove:
+            if getattr(args, 'stats', False):
+                sys.argv.append('--stats')
+            if getattr(args, 'remove', None):
                 sys.argv.extend(['--remove', args.remove])
-            if args.clear:
+            if getattr(args, 'clear', False):
                 sys.argv.append('--clear')
             sys.argv.extend(['--database-dir', args.database_dir])
             faces_main()
         finally:
+            # Important: restore sys.argv to avoid side effects.
             sys.argv = original_argv
     
     elif args.command == 'realtime':
         from har_system.apps.realtime_pose import main as realtime_main
-        # Convert args to format expected by realtime_pose
+        # `realtime_pose.main()` is implemented as a CLI that reads sys.argv.
+        # Here we translate this dispatcher's args into the CLI format that realtime_pose expects.
         original_argv = sys.argv.copy()
         try:
             sys.argv = ['realtime_pose']
@@ -213,15 +124,18 @@ Examples:
             sys.argv.extend(['--print-interval', str(args.print_interval)])
             if args.enable_face_recognition:
                 sys.argv.append('--enable-face-recognition')
-            if args.database_dir:
+            # Only pass database-dir if explicitly provided so realtime_pose can fall back to YAML.
+            if args.database_dir is not None:
                 sys.argv.extend(['--database-dir', args.database_dir])
+            if args.no_display:
+                sys.argv.append('--no-display')
             realtime_main()
         finally:
             sys.argv = original_argv
     
     elif args.command == 'chokepoint':
         from har_system.apps.chokepoint_analyzer import main as chokepoint_main
-        # Convert args to format expected by chokepoint_analyzer
+        # Same pattern as realtime: reuse the CLI in `chokepoint_analyzer.py` by preparing sys.argv.
         original_argv = sys.argv.copy()
         try:
             sys.argv = ['chokepoint_analyzer'] + [
@@ -232,11 +146,14 @@ Examples:
                 sys.argv.append('--enable-face-recognition')
             if args.database_dir:
                 sys.argv.extend(['--database-dir', args.database_dir])
+            if args.no_display:
+                sys.argv.append('--no-display')
             chokepoint_main()
         finally:
             sys.argv = original_argv
     
     else:
+        # Defensive fallback in case args.command is unexpected.
         parser.print_help()
         sys.exit(1)
 

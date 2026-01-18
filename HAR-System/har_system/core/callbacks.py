@@ -5,12 +5,11 @@ GStreamer callback handlers for HAR processing
 """
 
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import numpy as np
 import hailo
 from hailo_apps.python.core.gstreamer.gstreamer_app import app_callback_class
 from hailo_apps.python.core.common.buffer_utils import get_numpy_from_buffer_efficient, get_caps_from_pad
-
 
 class HARCallbackHandler(app_callback_class):
     """Callback handler for HAR-System processing"""
@@ -34,6 +33,7 @@ class HARCallbackHandler(app_callback_class):
         self.print_every_n_frames = config.get('print_every_n_frames', 30)
         self.save_data = config.get('save_data', False)
         self.output_dir = config.get('output_dir', './results/camera')
+        self.save_interval = int(config.get('save_interval', 300))
         
         # Face recognition components
         self.face_identity_manager = face_identity_manager
@@ -42,12 +42,14 @@ class HARCallbackHandler(app_callback_class):
                                         face_processor is not None and
                                         face_processor.is_enabled())
         
-        # Face recognition settings
+        # Face recognition throttling:
+        # we do not attempt recognition on every frame to reduce CPU load.
         self.recognition_interval = config.get('face_recognition', {}).get('recognition_interval_frames', 15)
         self.skip_first_frames = config.get('face_recognition', {}).get('skip_first_frames', 5)
         self.track_frame_counts = {}  # Track frame count per track_id
         
         # Statistics
+        # Used for lightweight timing/FPS estimates in the callback path.
         self.frame_times = []
         self.last_summary_time = time.time()
         
@@ -61,11 +63,10 @@ class HARCallbackHandler(app_callback_class):
     def get_tracker(self):
         """Get temporal tracker instance"""
         return self.temporal_tracker
-    
+
     def get_face_identity_manager(self):
         """Get face identity manager instance"""
         return self.face_identity_manager
-
 
 def get_keypoint_mapping():
     """Get mapping of keypoint names to indices"""
@@ -89,7 +90,6 @@ def get_keypoint_mapping():
         "right_ankle": 16,
     }
 
-
 def extract_frame_data(detection, keypoint_map: Dict) -> Dict[str, Any]:
     """
     Extract frame data from Hailo detection
@@ -107,7 +107,7 @@ def extract_frame_data(detection, keypoint_map: Dict) -> Dict[str, Any]:
         return None
     track_id = track[0].get_id()
     
-    # Extract Bounding Box
+    # Extract bounding box (normalized coordinates in [0..1]).
     bbox_obj = detection.get_bbox()
     bbox = {
         'xmin': bbox_obj.xmin(),
@@ -116,7 +116,7 @@ def extract_frame_data(detection, keypoint_map: Dict) -> Dict[str, Any]:
         'ymax': bbox_obj.ymax()
     }
     
-    # Extract Keypoints (17 points)
+    # Extract keypoints (COCO-17 style via Hailo landmarks).
     keypoints = {}
     landmarks = detection.get_objects_typed(hailo.HAILO_LANDMARKS)
     
@@ -134,7 +134,6 @@ def extract_frame_data(detection, keypoint_map: Dict) -> Dict[str, Any]:
         'keypoints': keypoints,
         'confidence': detection.get_confidence()
     }
-
 
 def extract_eye_positions(detection, keypoint_map: Dict, frame_width: int, frame_height: int) -> tuple:
     """
@@ -183,7 +182,6 @@ def extract_eye_positions(detection, keypoint_map: Dict, frame_width: int, frame
     
     return (person_id, left_eye_x, left_eye_y, right_eye_x, right_eye_y)
 
-
 def print_frame_summary(frame_count: int, active_tracks: list, temporal_tracker):
     """Print periodic frame summary"""
     print(f"\n{'='*60}")
@@ -213,7 +211,6 @@ def print_frame_summary(frame_count: int, active_tracks: list, temporal_tracker)
     print(f"     Total People: {global_stats['total_tracks_seen']}")
     print(f"     Falls Detected: {global_stats['total_falls_detected']}")
     print(f"     Activity Changes: {global_stats['total_activity_changes']}")
-
 
 def process_frame_callback(element, buffer, user_data):
     """
@@ -327,7 +324,7 @@ def process_frame_callback(element, buffer, user_data):
         print_frame_summary(frame_count, active_tracks, user_data.temporal_tracker)
     
     # Save data (optional)
-    if user_data.save_data and frame_count % 300 == 0:
+    if user_data.save_data and frame_count % user_data.save_interval == 0:
         import os
         for track_id in user_data.temporal_tracker.get_all_active_tracks():
             filepath = os.path.join(

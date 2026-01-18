@@ -1,26 +1,19 @@
 #!/bin/bash
-# تشغيل تحليل ChokePoint Dataset
+# Run ChokePoint dataset analysis
+
+# Get the script's directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 echo "=================================================="
 echo "HAR-System: ChokePoint Dataset Analyzer"
 echo "=================================================="
 echo ""
 
-# Navigate to correct directory
-cd "$(dirname "$0")/.."
+# Change to project root
+cd "$PROJECT_ROOT"
 
-# Check environment
-if [ ! -d "../venv_hailo_apps" ]; then
-    echo "[ERROR] Virtual environment not found"
-    echo "   Please run: cd ~/hailo-apps && sudo ./install.sh"
-    exit 1
-fi
-
-# Activate environment
-echo "[SETUP] Activating virtual environment..."
-source ../setup_env.sh
-
-# التحقق من وجود مجلد test_dataset
+# Check that the dataset folder exists
 if [ ! -d "test_dataset/choke_point" ]; then
     echo "[ERROR] مجلد test_dataset/choke_point غير موجود!"
     echo "يرجى إنشاء المجلد ووضع البيانات فيه:"
@@ -30,7 +23,7 @@ if [ ! -d "test_dataset/choke_point" ]; then
     exit 1
 fi
 
-# تشغيل التحليل (باستخدام الوحدة الرئيسية المدمجة)
+# Run the analysis via the packaged CLI entry point
 echo ""
 echo "[RUN] Starting ChokePoint analysis..."
 echo ""

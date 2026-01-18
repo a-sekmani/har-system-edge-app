@@ -1,27 +1,23 @@
-# 🧠 HAR System Edge App
+# 🧠 HAR System - Human Activity Recognition (Edge application)
 
-**Real-time human activity recognition using Raspberry Pi and Hailo-8 accelerator**
+**Real-time human activity recognition using Raspberry Pi and Hailo-8 AI Accelerator**
 
 ---
 
 ## 📋 Overview
 
-HAR-System is an intelligent edge AI system for real-time human activity recognition. It combines:
-- **Hailo-8 AI Accelerator** for fast pose estimation
-- **Temporal tracking** to understand behavior over time
-- **Normalized measurements** that work on any resolution/distance/angle
-- **Real-time processing** at 10-15 FPS 
+HAR-System is an intelligent edge AI system for **real-time human activity recognition** on Raspberry Pi.
 
 ### ✨ Key Features
 
-- ✅ **Stable tracking** with persistent Track IDs
-- ✅ **17 keypoints** per person extraction
-- ✅ **Activity classification** (standing, moving, sitting)
-- ✅ **Fall detection** with configurable sensitivity
-- ✅ **Normalized metrics** independent of camera setup
-- ✅ **Data export** to JSON for analysis
-- ✅ **Modular architecture** easy to extend
-- ✅ **Face recognition** (NEW) - Identify persons by name
+- ✅ **Stable Multi-Person Tracking** - Persistent Track IDs across frames
+- ✅ **17 Keypoints Extraction** - Full body pose estimation per person
+- ✅ **Activity Classification** - Automatic: standing, moving, sitting detection
+- ✅ **Fall Detection** - Configurable sensitivity for safety applications
+- ✅ **Face Recognition** - Identify persons by name with LanceDB
+- ✅ **Normalized Metrics** - Camera-independent measurements
+- ✅ **Data Export** - JSON export for post-processing and analysis
+- ✅ **Modular Architecture** - Easy to extend and customize
 
 ---
 
@@ -37,18 +33,20 @@ HAR-System/
 │   │   ├── __init__.py
 │   │   ├── tracker.py          # TemporalActivityTracker
 │   │   ├── callbacks.py        # Frame processing
-│   │   └── face_identity_manager.py  # Face identity management (NEW)
+│   │   ├── face_identity_manager.py  # Face identity management
+│   │   └── face_processor.py    # Face recognition processor
 │   ├── integrations/           # External system integrations (NEW)
 │   │   ├── __init__.py
 │   │   └── hailo_face_recognition.py  # Face recognition integration
 │   ├── utils/                  # Utility functions
 │   │   ├── __init__.py
-│   │   └── cli.py              # CLI tools
+│   │   ├── cli.py              # CLI tools
+│   │   └── overlay.py          # Overlay helpers
 │   └── apps/                   # Applications
 │       ├── __init__.py
 │       ├── realtime_pose.py    # Main real-time app
-│       ├── train_faces.py      # Face training app (NEW)
-│       ├── manage_faces.py     # Face management app (NEW)
+│       ├── train_faces.py      # Face training app 
+│       ├── manage_faces.py     # Face management app 
 │       └── chokepoint_analyzer.py  # ChokePoint dataset analyzer
 │
 ├── 🧪 examples/                # Examples & tests
@@ -56,18 +54,20 @@ HAR-System/
 │   └── test_har_tracker.py
 │
 ├── 📜 scripts/                 # Shell scripts
-│   ├── run_with_camera.sh
-│   ├── run_chokepoint_analysis.sh
-│   ├── run_examples.sh
-│   └── run_tests.sh
+│   ├── run_with_camera.sh          # Quick start with camera
+│   ├── run_performance_mode.sh     # Run in performance mode 
+│   ├── test_performance.sh         # Performance benchmarking
+│   ├── run_chokepoint_analysis.sh  # ChokePoint analyzer
+│   ├── run_examples.sh             # Run examples
+│   ├── run_tests.sh                # Run tests
+│   └── train_faces_auto.sh         # Automated face training
 │
 ├── ⚙️ config/                   # Configuration files
-│   └── default.yaml
+│   └── default.yaml            # Main configuration
 │
 ├── 📄 setup.py                 # Installation script
-├── 📄 pyproject.toml           # Python project configuration
 ├── 📄 requirements.txt         # Python dependencies
-├── 📄 CHOKEPOINT_README.md     # ChokePoint analyzer documentation
+├── 📄 quick_start.sh            # Quick setup helper
 └── 📄 README.md                # This file
 ```
 
@@ -80,7 +80,7 @@ HAR-System/
 #### Prerequisites
 ```bash
 # Install hailo-apps first
-cd ~ /hailo-apps
+cd ~/hailo-apps
 sudo ./install.sh
 source setup_env.sh
 ```
@@ -98,58 +98,109 @@ pip install .
 
 ### 2. Run with Camera
 
+#### Basic Usage
 ```bash
-# Basic usage
+# Standard mode (with display)
 python3 -m har_system realtime --input rpi --show-fps
 
-# With face recognition (requires trained database)
-python3 -m har_system realtime --input rpi --show-fps --enable-face-recognition
+# Performance mode (no display, faster) ⚡ RECOMMENDED
+python3 -m har_system realtime --input rpi --no-display
 
-# Using installed command
-har-system --input rpi --show-fps
-
-# Using script
+# Quick start script
 cd scripts
-./run_with_camera.sh
+./run_with_camera.sh              # Standard mode
+./run_performance_mode.sh         # Performance mode
 ```
 
-### 3. Face Recognition (NEW)
-
+#### Advanced Usage
 ```bash
-# Train face recognition with images
-# First, organize your images:
-mkdir -p train_faces/Ahmed train_faces/Sara
-# Add photos to each person's folder
+# With face recognition (requires trained database)
+python3 -m har_system realtime --input rpi --enable-face-recognition
 
-# Train the system
+# Maximum performance (for production)
+python3 -m har_system realtime --input rpi --no-display --print-interval 60
+
+# With data collection
+python3 -m har_system realtime --input rpi --no-display --save-data
+
+# Using USB camera
+python3 -m har_system realtime --input usb --show-fps
+```
+
+### 3. Face Recognition
+
+Face recognition allows you to identify specific persons by name in real-time.
+
+#### Training the System
+```bash
+# Step 1: Organize training images
+mkdir -p train_faces/Ahmed train_faces/Sara
+# Add 5-10 photos per person (different angles, lighting)
+
+# Step 2: Train the system
 python3 -m har_system train-faces --train-dir ./train_faces
 
-# Manage known faces
-python3 -m har_system faces --list              # List all known persons
-python3 -m har_system faces --remove Ahmed      # Remove a person
-python3 -m har_system faces --clear             # Clear database
-
-# Run with face recognition enabled
-python3 -m har_system realtime --input rpi --enable-face-recognition
+# Step 3: Verify training
+python3 -m har_system faces --list
 ```
 
-### 4. Run ChokePoint Dataset Analysis
+#### Managing Faces Database
+```bash
+# List all known persons
+python3 -m har_system faces --list
+
+# Remove a specific person
+python3 -m har_system faces --remove Ahmed
+
+# Clear entire database
+python3 -m har_system faces --clear
+```
+
+#### Running with Face Recognition
+```bash
+# Enable face recognition
+python3 -m har_system realtime --input rpi --enable-face-recognition
+
+# With performance mode (recommended)
+python3 -m har_system realtime --input rpi --enable-face-recognition --no-display
+
+# Custom database directory
+python3 -m har_system realtime --input rpi --enable-face-recognition --database-dir ./custom_db
+```
+
+### 4. Performance Testing
+
+Test and compare system performance:
 
 ```bash
-# Analyze ChokePoint dataset
+# Automated performance comparison
+cd scripts
+./test_performance.sh
+
+# Monitor CPU usage (in separate terminal)
+top -H -p $(pgrep -f har_system)
+
+# Check FPS in output
+# Look for: [PERF] Average processing time: X ms | FPS: Y
+```
+
+### 5. Run ChokePoint Dataset Analysis
+
+Analyze the ChokePoint pedestrian dataset:
+
+```bash
+# Basic analysis
 python3 -m har_system chokepoint --dataset-path ./test_dataset --results-dir ./results
 
-# Or using installed command (after reinstall)
-har-chokepoint --dataset-path ./test_dataset --results-dir ./results
+# Performance mode (no display)
+python3 -m har_system chokepoint --dataset-path ./test_dataset --results-dir ./results --no-display
 
-# Or using script
+# Using script
 cd scripts
 ./run_chokepoint_analysis.sh
 ```
 
-For more details, see [CHOKEPOINT_README.md](CHOKEPOINT_README.md).
-
-### 5. Run Examples
+### 6. Run Examples
 
 ```bash
 # Using script (recommended)
@@ -165,84 +216,144 @@ python3 examples/demo_temporal_tracking.py
 
 ---
 
-## 📖 Usage
+## 📖 Usage Guide
 
 ### Command Line Interface
 
-HAR-System supports multiple commands via the unified CLI:
+HAR-System provides a unified CLI with multiple commands:
 
 ```bash
 # Main entry point
 python3 -m har_system <command> [options]
 
 # Available commands:
-#   realtime       - Real-time pose tracking with optional face recognition
-#   train-faces    - Train face recognition system
-#   faces          - Manage face database
-#   chokepoint     - Analyze ChokePoint dataset
+commands:
+  realtime       Real-time pose tracking with activity recognition
+  train-faces    Train face recognition system with images
+  faces          Manage face recognition database
+  chokepoint     Analyze ChokePoint pedestrian dataset
 
-# Or using installed commands (after pip install)
-har-system [options]          # Real-time app
-har-chokepoint [options]      # ChokePoint analyzer
+# Installed commands (after pip install)
+har-system [options]          # Shortcut for: python3 -m har_system realtime
+har-chokepoint [options]      # Shortcut for: python3 -m har_system chokepoint
 ```
+
+#### Quick Command Reference
+
+| Command | Purpose | Example |
+|---------|---------|---------|
+| `realtime` | Live tracking | `python3 -m har_system realtime --input rpi` |
+| `train-faces` | Train faces | `python3 -m har_system train-faces --train-dir ./faces` |
+| `faces --list` | List persons | `python3 -m har_system faces --list` |
+| `chokepoint` | Dataset analysis | `python3 -m har_system chokepoint --dataset-path ./data` |
 
 ### Real-time Pose Tracking
 
+#### Command Options
+
 ```bash
-# Command options
 python3 -m har_system realtime [OPTIONS]
 
-Options:
-  -i, --input TEXT        Video source (rpi/usb/file) [default: rpi]
-  -f, --show-fps          Show FPS counter
-  -v, --verbose           Show detailed information
-  --save-data             Save tracking data to JSON
-  --output-dir TEXT       Output directory [default: ./results/camera]
-  --print-interval INT    Print summary every N frames [default: 30]
+Video Input:
+  -i, --input TEXT              Video source (rpi/usb/file) [default: rpi]
+  
+Display & Performance:
+  -f, --show-fps                Show FPS counter on display
+  --no-display                  Disable video display (improves performance)
+  
+Output & Logging:
+  -v, --verbose                 Show detailed debug information
+  --print-interval INT          Print summary every N frames [default: 30]
+  --save-data                   Save tracking data to JSON files
+  --output-dir TEXT             Output directory [default: ./results/camera]
+  
+Face Recognition:
+  --enable-face-recognition     Enable face recognition
+  --database-dir TEXT           Face database directory [default: from config/default.yaml or ./database]
 ```
 
-**Examples:**
+#### Usage Examples
+
+**Basic Usage:**
 ```bash
-# With Raspberry Pi camera
+# Standard mode (with display)
 python3 -m har_system realtime --input rpi --show-fps
 
-# With face recognition
-python3 -m har_system realtime --input rpi --enable-face-recognition
+# Performance mode (recommended for production) ⚡
+python3 -m har_system realtime --input rpi --no-display
+```
 
-# With USB camera
-python3 -m har_system realtime --input usb --show-fps
+**Different Video Sources:**
+```bash
+# Raspberry Pi Camera (default)
+python3 -m har_system realtime --input rpi
 
-# With video file
+# USB Camera
+python3 -m har_system realtime --input usb
+
+# Specific device
+python3 -m har_system realtime --input /dev/video0
+
+# Video file
 python3 -m har_system realtime --input video.mp4
+```
 
-# Save data
-python3 -m har_system realtime --input rpi --save-data --output-dir ./my_data
+**Advanced Features:**
+```bash
+# With face recognition
+python3 -m har_system realtime --input rpi --enable-face-recognition --no-display
 
-# Verbose mode
-python3 -m har_system realtime --input rpi --verbose --print-interval 60
+# Data collection mode
+python3 -m har_system realtime --input rpi --no-display --save-data --output-dir ./data
+
+# Verbose debugging
+python3 -m har_system realtime --input rpi --verbose --print-interval 30
+
+# Maximum performance (production)
+python3 -m har_system realtime --input rpi --no-display --print-interval 60
 ```
 
 ### ChokePoint Dataset Analysis
 
+Analyze pedestrian activity patterns from the ChokePoint dataset.
+
+#### Command Options
+
 ```bash
-# Command options
 python3 -m har_system chokepoint [OPTIONS]
 
 Options:
-  --dataset-path TEXT     Path to test_dataset folder [default: ./test_dataset]
-  --results-dir TEXT      Results output directory [default: ./results]
+  --dataset-path TEXT          Path to test_dataset folder [default: ./test_dataset]
+  --results-dir TEXT           Results output directory [default: ./results]
+  --enable-face-recognition    Enable face recognition (optional)
+  --database-dir TEXT          Face database directory (if face recognition enabled)
+  --no-display                 Disable video display (improves performance)
 ```
 
-**Examples:**
+#### Examples
+
 ```bash
-# Analyze ChokePoint dataset
+# Basic analysis
 python3 -m har_system chokepoint --dataset-path ./test_dataset
 
-# Custom results directory
+# Performance mode (no display)
+python3 -m har_system chokepoint --dataset-path ./test_dataset --no-display
+
+# Custom output directory
 python3 -m har_system chokepoint --dataset-path ./test_dataset --results-dir ./my_results
+
+# With face recognition
+python3 -m har_system chokepoint --dataset-path ./test_dataset --enable-face-recognition
+
+# Full features with performance mode
+python3 -m har_system chokepoint \
+    --dataset-path ./test_dataset \
+    --enable-face-recognition \
+    --database-dir ./database \
+    --no-display
 ```
 
-For detailed ChokePoint documentation, see [CHOKEPOINT_README.md](CHOKEPOINT_README.md).
+📖 **ملاحظة:** تم تضمين شرح ChokePoint في هذا الملف (`README.md`) لتبسيط التوثيق.
 
 ---
 
@@ -296,29 +407,94 @@ tracker.save_to_json(track_id=1, filepath='person_1.json')
 
 ## ⚙️ Configuration
 
-Edit `config/default.yaml`:
+### Configuration File
+
+`config/default.yaml` is used to define **defaults** for:
+- Temporal tracker (`history_seconds`, `fps_estimate`)
+- Activity / fall thresholds
+- Face recognition parameters (thresholds, intervals, db paths)
+- Export save interval (`data_export.save_interval`)
+- Video size and frame rate passed to the underlying Hailo GStreamer app (`video.width/height/frame_rate`)
+
+Some behaviors are still controlled via CLI flags (for example: enabling face recognition, enabling saving, and `--no-display`).
 
 ```yaml
 har_system:
+  # Temporal Tracking Settings
   temporal_tracker:
-    history_seconds: 3.0
-    fps_estimate: 15
+    history_seconds: 3.0        # How many seconds of history to keep
+    fps_estimate: 15            # Expected FPS (for temporal calculations)
   
+  # Activity Classification Thresholds
   activity_classifier:
     thresholds:
-      speed_stationary: 0.1
-      hip_ratio_sitting: 0.62
+      speed_stationary: 0.1     # Below this = stationary
+      speed_slow: 0.5           # Between stationary and fast
+      speed_fast: 1.5           # Above this = fast movement
+      hip_ratio_sitting: 0.62   # Hip position threshold for sitting
   
+  # Fall Detection Settings
   fall_detector:
-    fall_drop_ratio: 0.30
-    fall_time_threshold: 0.5
+    fall_drop_ratio: 0.30       # Drop > 30% of height = potential fall
+    fall_time_threshold: 0.5    # Must occur within 0.5 seconds
   
-  # Face Recognition Settings (NEW)
+  # Face Recognition Settings
   face_recognition:
-    enabled: false                     # Enable/disable face recognition
-    confidence_threshold: 0.70         # Minimum confidence (0.0-1.0)
-    recognition_interval_frames: 15    # Check face every N frames
-    min_confirmations: 2               # Confirmations before trusting identity
+    enabled: false                      # Parameters only; enabling is done via --enable-face-recognition
+    database_dir: "./database"          # Database directory
+    samples_dir: "./database/samples"   # Samples directory
+    confidence_threshold: 0.60          # Minimum confidence (0.0-1.0)
+    recognition_interval_frames: 10     # Check face every N frames
+    skip_first_frames: 3                # Skip first N frames (usually blurry)
+    min_confirmations: 1                # Confirmations before trusting identity
+    identity_timeout: 5.0               # Seconds before re-confirmation
+    max_faces_per_frame: 5              # Maximum faces to process per frame
+
+# Display Settings (overridden by CLI flags)
+display:
+  verbose: false                  # Show detailed information
+  print_every_n_frames: 30        # Print summary every N frames
+  show_fps: true                  # Prefer enabling via --show-fps
+
+# Data Export Settings
+data_export:
+  save_data: false                # Prefer enabling via --save-data
+  output_dir: ./results/camera    # Save directory
+  save_interval: 300              # Save every N frames
+
+# Video Settings (passed to GStreamer)
+video:
+  input: rpi                      # Video source: rpi, usb, /dev/videoX, or file
+  width: 1280                     # Video width (16:9 aspect ratio, default)
+  height: 720                     # Video height (16:9 aspect ratio, default)
+  frame_rate: 30                  # Target frame rate
+```
+
+### Performance Tuning
+
+For better performance, adjust these settings:
+
+```yaml
+# Maximum Performance Configuration
+video:
+  width: 640                      # Lower resolution (keep 16:9 ratio)
+  height: 360
+
+har_system:
+  temporal_tracker:
+    history_seconds: 2.0          # Less history
+
+display:
+  print_every_n_frames: 60        # Less frequent output
+
+face_recognition:
+  enabled: false                  # Disable if not needed
+  recognition_interval_frames: 20 # Less frequent recognition
+```
+
+Then run with:
+```bash
+python3 -m har_system realtime --input rpi --no-display --print-interval 60
 ```
 
 ---
@@ -327,18 +503,20 @@ har_system:
 
 ### Terminal Output
 
+When running with display or in verbose mode, you'll see:
+
 ```
 ============================================================
 [FRAME] 30 | Active People: 2
 ============================================================
 
-  [TRACK] 1 - Ahmed:               <- Name from face recognition
+  [TRACK] 1 - Ahmed:               ← Identified by face recognition
      Activity: moving
      Duration: 12.3s
      Normalized Distance: 45.67
      Moving: 85.2% | Stationary: 14.8%
 
-  [TRACK] 2 - Unknown:             <- Unknown person
+  [TRACK] 2 - Unknown:             ← Face not recognized
      Activity: standing
      Duration: 5.8s
      Stationary: 92.5%
@@ -347,28 +525,52 @@ har_system:
      Total People: 3
      Falls Detected: 0
      Activity Changes: 5
+
+[PERF] Average processing time: 66.7ms | FPS: 15.0
 ```
 
 ### JSON Export
 
+When using `--save-data`, each tracked person is saved to JSON:
+
 ```json
 {
   "track_id": 1,
-  "name": "Ahmed",               // <- Person name (NEW)
+  "name": "Ahmed",                      // Person name (if recognized)
   "metadata": {
     "first_seen": 1736463421.234,
-    "duration_seconds": 12.333
+    "last_seen": 1736463433.567,
+    "duration_seconds": 12.333,
+    "frame_count": 185
   },
   "current_state": {
-    "activity": "moving"
+    "activity": "moving",
+    "bbox": {
+      "xmin": 0.25,
+      "ymin": 0.15,
+      "xmax": 0.55,
+      "ymax": 0.95
+    },
+    "confidence": 0.94
   },
   "statistics": {
     "total_distance_normalized": 45.67,
     "percent_moving": 85.2,
-    "fall_detected": false
+    "percent_stationary": 14.8,
+    "percent_sitting": 0.0,
+    "fall_detected": false,
+    "activity_changes": 3
+  },
+  "history": {
+    "total_frames": 185,
+    "keypoints_available": true
   }
 }
 ```
+
+**Output Files Location:**
+- Default: `./results/camera/`
+- Filenames: `track_{id}_frame_{frame_number}.json` (periodic), `track_{id}_final.json` (on exit)
 
 ---
 
@@ -401,67 +603,98 @@ python3 -c "from examples.test_har_tracker import test_moving_person; test_movin
 
 ---
 
-## 🔨 Development
-
-### Project Structure
-
-```python
-har_system/
-├── __init__.py           # Package exports
-├── __main__.py           # Unified CLI entry point (python -m har_system)
-│                         # Supports: realtime, chokepoint commands
-├── core/                 # Core components
-│   ├── __init__.py
-│   ├── tracker.py        # Main tracking algorithm (~540 lines)
-│   └── callbacks.py      # Frame processing (~210 lines)
-├── utils/                # Utilities
-│   ├── __init__.py
-│   └── cli.py            # CLI helper functions (~100 lines)
-└── apps/                 # Applications
-    ├── __init__.py
-    ├── realtime_pose.py  # Main real-time app (~115 lines)
-    └── chokepoint_analyzer.py  # ChokePoint dataset analyzer (~580 lines)
-```
-
-### Entry Points
-
-The system provides multiple entry points:
-
-1. **Module entry point**: `python3 -m har_system <command>` (via `__main__.py`)
-2. **Console scripts** (after `pip install`):
-   - `har-system` → `har_system.apps.realtime_pose:main`
-   - `har-chokepoint` → `har_system.apps.chokepoint_analyzer:main`
-
-### Adding New Features
-
-1. **New activity classifier**: Edit `har_system/core/tracker.py`
-2. **New callback**: Edit `har_system/core/callbacks.py`
-3. **New application**: 
-   - Add to `har_system/apps/`
-   - Register in `har_system/__main__.py` as a new command
-   - Add entry point in `setup.py` (optional)
-4. **New utility**: Add to `har_system/utils/`
-
----
-
 ## 🐛 Troubleshooting
 
-### Import Error
+### Common Issues
+
+#### Import Error / Module Not Found
 ```bash
-# Activate environment first
+# Solution: Activate hailo-apps environment
 cd /home/admin/hailo-apps
 source setup_env.sh
+
+# Reinstall HAR-System
+cd HAR-System
+pip install -e .
 ```
 
-### Low FPS
-- Use smaller model (yolov8s instead of yolov8m)
-- Reduce video resolution
-- Decrease `history_seconds` in config
+#### Low FPS / High CPU Usage
 
-### False Fall Detection
+**Quick Fixes:**
+1. ⚡ **Use `--no-display` flag** (often improves performance noticeably, Because it reduces the load on the CPU, which, according to experience, is a bottleneck.)
+   ```bash
+   python3 -m har_system realtime --input rpi --no-display
+   ```
+
+2. 📉 **Reduce terminal output**
+   ```bash
+   python3 -m har_system realtime --input rpi --print-interval 60
+   ```
+
+3. 📺 **Lower video resolution** (edit `config/default.yaml`)
+   ```yaml
+   video:
+     width: 640     # Instead of 1280
+     height: 360    # Instead of 720 (keep 16:9 ratio)
+   ```
+
+4. 🔄 **Disable face recognition** (if not needed)
+   ```bash
+   # Just don't use --enable-face-recognition flag
+   python3 -m har_system realtime --input rpi --no-display
+   ```
+
+**Advanced Optimization:**
+- Use smaller model: `yolov8s_pose.hef` instead of `yolov8m_pose.hef`
+- Reduce tracking history: Set `history_seconds: 2.0` in config
+- Check for multiple processes: `ps aux | grep har_system`
+- Verify Hailo device: `hailortcli fw-control identify`
+
+#### False Fall Detection
+
+Adjust sensitivity in `config/default.yaml`:
 ```yaml
-# Increase thresholds in config/default.yaml
 fall_detector:
-  fall_drop_ratio: 0.35      # Less sensitive
-  fall_time_threshold: 0.6
+  fall_drop_ratio: 0.35      # Higher = less sensitive
+  fall_time_threshold: 0.6   # Longer time window
+```
+
+#### Camera Not Detected
+
+```bash
+# Check available cameras
+ls /dev/video*
+
+# Try specific device
+python3 -m har_system realtime --input /dev/video0
+
+# For USB camera
+python3 -m har_system realtime --input usb
+```
+
+#### Face Recognition Issues
+
+```bash
+# Verify database exists and has persons
+python3 -m har_system faces --list
+
+# Retrain if needed
+python3 -m har_system train-faces --train-dir ./train_faces
+
+# Check database directory
+ls -la ./database/persons.db/
+```
+
+### Performance Benchmarking
+
+```bash
+# Test your system performance
+cd scripts
+./test_performance.sh
+
+# Monitor CPU in real-time
+top -H -p $(pgrep -f har_system)
+
+# Check GPU/NPU usage (Hailo)
+hailortcli fw-control identify
 ```

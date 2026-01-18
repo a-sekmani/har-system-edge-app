@@ -47,6 +47,6 @@ data_export:
 # Video settings (passed to GStreamer)
 video:
   input: rpi                  # rpi, usb, /dev/videoX, or file
-  width: 640                  # Width
-  height: 640                 # Height
+  width: 1280                 # Width (16:9 aspect ratio)
+  height: 720                 # Height (16:9 aspect ratio)
   frame_rate: 30              # Target frame rate

@@ -4,13 +4,9 @@ HAR-System: Hailo Face Recognition Integration
 Integration with Hailo-Apps Face Recognition system
 """
 
-import os
-import sys
-import time
 import numpy as np
 from pathlib import Path
 from typing import Dict, Optional, Any, Tuple
-import cv2
 
 # Import Hailo face recognition components
 try:
@@ -20,6 +16,8 @@ try:
         FACE_RECON_SAMPLES_DIR_NAME
     )
 except ImportError:
+    # Allow the rest of HAR-System to run without face recognition dependencies.
+    # The caller can check `is_enabled()` and behave accordingly.
     print("[WARNING] Hailo apps not found. Face recognition will not work.")
     DatabaseHandler = None
     Record = None
@@ -51,13 +49,14 @@ class HailoFaceRecognition:
         self.samples_dir = Path(samples_dir)
         self.confidence_threshold = confidence_threshold
         
-        # Create directories
+        # Ensure database/samples directories exist (LanceDB stores data on disk).
         self.database_dir.mkdir(parents=True, exist_ok=True)
         self.samples_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize database handler
         if DatabaseHandler is not None:
             try:
+                # DatabaseHandler is a hailo-apps utility that wraps LanceDB operations.
                 self.db_handler = DatabaseHandler(
                     db_name='persons.db',
                     table_name='persons',

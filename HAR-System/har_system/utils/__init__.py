@@ -12,6 +12,7 @@ from .cli import (
     print_final_summary
 )
 
+# Re-export commonly used helpers to keep imports short in app modules.
 __all__ = [
     'parse_arguments',
     'setup_output_directory',

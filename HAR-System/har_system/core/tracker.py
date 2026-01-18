@@ -38,7 +38,8 @@ class TemporalActivityTracker:
         # Store data for each track_id
         self.tracks = defaultdict(lambda: self._create_new_track())
         
-        # Threshold settings (Thresholds) - adjustable
+        # Threshold settings - adjustable defaults.
+        # Apps may override these values from config/default.yaml at runtime.
         self.thresholds = {
             'speed_stationary': 0.1,      # Below this = stationary
             'speed_slow': 0.5,             # Between this and next = slow
@@ -59,37 +60,27 @@ class TemporalActivityTracker:
     def _create_new_track(self) -> Dict:
         """Create a new record for a new person"""
         return {
-            # ════════════════════════════════════
-            # Raw Data
-            # ════════════════════════════════════
+            # Raw time-series buffers (bounded by history_frames).
             'timestamps': deque(maxlen=self.history_frames),
             'positions': deque(maxlen=self.history_frames),    # (x, y) center
             'bboxes': deque(maxlen=self.history_frames),       # {xmin, ymin, xmax, ymax}
             'keypoints': deque(maxlen=self.history_frames),    # dict of 17 points
             'confidences': deque(maxlen=self.history_frames),
             
-            # ════════════════════════════════════
-            # Metadata
-            # ════════════════════════════════════
+            # Lifecycle / bookkeeping.
             'first_seen': None,
             'last_seen': None,
             'is_active': True,
             'total_frames': 0,
             
-            # ════════════════════════════════════
-            # Identity (Face Recognition)
-            # ════════════════════════════════════
+            # Identity (optional face recognition integration).
             'name': 'Unknown',  # Person name from face recognition
             
-            # ════════════════════════════════════
-            # Current State
-            # ════════════════════════════════════
+            # Current state.
             'current_activity': 'unknown',
             'previous_activity': 'unknown',
             
-            # ════════════════════════════════════
-            # Cumulative Statistics
-            # ════════════════════════════════════
+            # Cumulative statistics (updated incrementally for efficiency).
             'stats': {
                 'total_distance_norm': 0.0,
                 'frames_stationary': 0,
@@ -121,18 +112,14 @@ class TemporalActivityTracker:
         timestamp = frame_data['timestamp']
         bbox = frame_data['bbox']
         
-        # ════════════════════════════════════
-        # 1. Record new appearance
-        # ════════════════════════════════════
+        # 1) First time we see this track_id.
         if track['first_seen'] is None:
             track['first_seen'] = timestamp
             self.global_stats['total_tracks_seen'] += 1
             self.global_stats['active_tracks'] += 1
             print(f"[NEW] Person entered scene: Track ID {track_id}")
         
-        # ════════════════════════════════════
-        # 2. Store raw data
-        # ════════════════════════════════════
+        # 2) Append raw observations to rolling buffers.
         track['last_seen'] = timestamp
         track['total_frames'] += 1
         track['timestamps'].append(timestamp)
@@ -144,9 +131,7 @@ class TemporalActivityTracker:
         center = self._get_bbox_center(bbox)
         track['positions'].append(center)
         
-        # ════════════════════════════════════
-        # 3. Calculate derivatives (if sufficient history)
-        # ════════════════════════════════════
+        # 3) Update derived motion metrics once we have enough history.
         if len(track['positions']) >= 2:
             # Normalized speed
             speed_norm = self._calculate_normalized_speed(track)
@@ -158,9 +143,7 @@ class TemporalActivityTracker:
                 track['stats']['frames_moving'] += 1
                 track['stats']['total_distance_norm'] += speed_norm
         
-        # ════════════════════════════════════
-        # 4. Classify activity
-        # ════════════════════════════════════
+        # 4) Classify activity once we have a minimum window.
         if len(track['positions']) >= 10:
             track['previous_activity'] = track['current_activity']
             track['current_activity'] = self._classify_activity_simple(track)
@@ -180,9 +163,7 @@ class TemporalActivityTracker:
             if track['current_activity'] == 'sitting':
                 track['stats']['frames_sitting'] += 1
         
-        # ════════════════════════════════════
-        # 5. Fall detection
-        # ════════════════════════════════════
+        # 5) Fall detection (independent of activity classification).
         if len(track['keypoints']) >= 15:
             if self._detect_fall_simple(track):
                 if not track['stats']['fall_detected']:
@@ -193,10 +174,7 @@ class TemporalActivityTracker:
         
         return track['current_activity']
     
-    # ════════════════════════════════════════════════════════
-    # Helper Functions - Normalized Measurements
-    # ════════════════════════════════════════════════════════
-    
+    # Helper functions: normalized measurements and basic geometry.
     def _get_bbox_center(self, bbox: Dict) -> Tuple[float, float]:
         """Calculate bounding box center"""
         cx = (bbox['xmin'] + bbox['xmax']) / 2
@@ -324,10 +302,7 @@ class TemporalActivityTracker:
         
         return hip_ratio
     
-    # ════════════════════════════════════════════════════════
-    # Classification and Detection
-    # ════════════════════════════════════════════════════════
-    
+    # Classification and detection (simple, stable heuristics).
     def _classify_activity_simple(self, track: Dict, window: int = 30) -> str:
         """
         Classify activity - 3 basic categories
@@ -358,10 +333,7 @@ class TemporalActivityTracker:
         
         avg_hip_ratio = np.mean(hip_ratios) if hip_ratios else 0.5
         
-        # ════════════════════════════════════
-        # Classification rules (simple and stable)
-        # ════════════════════════════════════
-        
+        # Classification rules (simple and stable).
         # Sitting: hip relatively high + low speed
         if (avg_hip_ratio > self.thresholds['hip_ratio_sitting'] and 
             speed < self.thresholds['speed_stationary'] * 1.5):
@@ -417,10 +389,7 @@ class TemporalActivityTracker:
         
         return False
     
-    # ════════════════════════════════════════════════════════
-    # Query Functions - Get Information
-    # ════════════════════════════════════════════════════════
-    
+    # Query helpers (read-only access to internal state).
     def get_activity(self, track_id: int) -> str:
         """Get current activity for a specific person"""
         return self.tracks[track_id]['current_activity']
