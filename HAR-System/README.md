@@ -594,10 +594,16 @@ All measurements are **resolution and distance independent**:
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run legacy tracker tests (script-style)
 python3 examples/test_har_tracker.py
 
-# Run specific test
+# Run the full pytest suite (unit + component)
+pytest
+
+# Run only fast unit tests
+pytest -m unit
+
+# Run specific legacy test function
 python3 -c "from examples.test_har_tracker import test_moving_person; test_moving_person()"
 ```
 
