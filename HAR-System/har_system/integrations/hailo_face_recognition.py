@@ -270,16 +270,83 @@ class HailoFaceRecognition:
             }
     
     def clear_database(self):
-        """Clear all persons from database"""
+        """Clear all persons from database and all sample images"""
         if not self.is_enabled():
             print("[FACE-RECOG] Face recognition is disabled")
             return
         
         try:
+            # Get all records first to ensure we have something to delete
+            all_records = self.db_handler.get_all_records()
+            
+            # Always clear samples directory first (before clearing database)
+            print("[FACE-RECOG] Clearing sample images...")
+            self._clear_samples_directory()
+            
+            if not all_records:
+                print("[FACE-RECOG] Database is already empty")
+                print("[FACE-RECOG] Database and samples cleared successfully")
+                return
+            
+            # Clear the table (this also clears samples via db_handler, but we already did it)
+            print("[FACE-RECOG] Clearing database records...")
             self.db_handler.clear_table()
-            print("[FACE-RECOG] Database cleared")
+            
+            # Verify deletion
+            remaining = self.db_handler.get_all_records()
+            if remaining:
+                print(f"[FACE-RECOG] Warning: {len(remaining)} records still remain after clear")
+            else:
+                print("[FACE-RECOG] Database cleared successfully")
+            
+            # Final verification: check samples directory again
+            samples_remaining = list(Path(self.samples_dir).iterdir()) if Path(self.samples_dir).exists() else []
+            if samples_remaining:
+                print(f"[FACE-RECOG] Warning: {len(samples_remaining)} sample files still remain")
+            else:
+                print("[FACE-RECOG] All sample images cleared successfully")
+                
         except Exception as e:
             print(f"[FACE-RECOG] Error clearing database: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _clear_samples_directory(self):
+        """Clear all sample images from samples directory"""
+        import shutil
+        samples_dir = Path(self.samples_dir)
+        
+        if not samples_dir.exists():
+            print(f"[FACE-RECOG] Samples directory does not exist: {samples_dir}")
+            return
+        
+        try:
+            # Count files before deletion
+            files_before = list(samples_dir.iterdir())
+            file_count = len([f for f in files_before if f.is_file()])
+            dir_count = len([f for f in files_before if f.is_dir()])
+            
+            # Remove all files and directories in samples directory
+            for item_path in files_before:
+                try:
+                    if item_path.is_file():
+                        item_path.unlink()
+                    elif item_path.is_dir():
+                        shutil.rmtree(item_path)
+                except Exception as e:
+                    print(f"[FACE-RECOG] Warning: Could not delete {item_path.name}: {e}")
+            
+            # Verify deletion
+            files_after = list(samples_dir.iterdir())
+            if files_after:
+                print(f"[FACE-RECOG] Warning: {len(files_after)} items still remain in samples directory")
+            else:
+                print(f"[FACE-RECOG] Samples directory cleared successfully: {file_count} files, {dir_count} directories removed")
+                
+        except Exception as e:
+            print(f"[FACE-RECOG] Error clearing samples directory: {e}")
+            import traceback
+            traceback.print_exc()
     
     def remove_person(self, name: str) -> bool:
         """

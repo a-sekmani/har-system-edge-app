@@ -56,6 +56,25 @@ echo -e "${GREEN}[CONFIG]${NC} Training Directory: $TRAIN_DIR"
 echo -e "${GREEN}[CONFIG]${NC} Database Directory: $DATABASE_DIR"
 echo ""
 
+# CRITICAL: Clear old HAR-System database before training
+echo -e "${YELLOW}[CLEANUP]${NC} Clearing old HAR-System database to start fresh..."
+if [ -d "$DATABASE_DIR" ]; then
+    # Remove old database
+    find "$DATABASE_DIR" -name "*.db" -type f -delete 2>/dev/null || true
+    find "$DATABASE_DIR" -name "*.db" -type d -exec rm -rf {} + 2>/dev/null || true
+    # Remove old samples
+    if [ -d "$DATABASE_DIR/samples" ]; then
+        rm -rf "$DATABASE_DIR/samples"
+        mkdir -p "$DATABASE_DIR/samples"
+    fi
+    echo -e "  ${GREEN}✓${NC} Old HAR-System database cleared"
+else
+    mkdir -p "$DATABASE_DIR/samples"
+    echo -e "  ${GREEN}✓${NC} Created fresh database directory"
+fi
+echo -e "  ${GREEN}✓${NC} Training will use ONLY train_faces images (no old data)"
+echo ""
+
 # Check for images
 if [ ! -d "$TRAIN_DIR" ] || [ -z "$(ls -A "$TRAIN_DIR")" ]; then
     echo -e "${RED}[ERROR]${NC} No training images found in $TRAIN_DIR"
@@ -70,27 +89,74 @@ echo -e "${GREEN}[SCAN]${NC} Found $PERSON_COUNT person(s) with $IMAGE_COUNT ima
 echo ""
 
 # Setup hailo-apps environment
-HAILO_TRAIN_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/train"
+FACE_RECOG_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition"
+HAILO_TRAIN_DIR="${FACE_RECOG_DIR}/train"
+HAILO_TRAIN_IMAGES_DIR="${FACE_RECOG_DIR}/train_images"
+HAILO_TRAIN_TEMP_DIR="${FACE_RECOG_DIR}/train_images_temp"
 
 echo -e "${YELLOW}[SETUP][NC} Preparing hailo-apps training environment..."
+echo "  Ensuring ONLY train_faces directory is used as source..."
 
-# Remove any existing train content
+# Remove ALL existing train directories to prevent old images from being used
+echo "  Cleaning ALL old training directories..."
 if [ -d "$HAILO_TRAIN_DIR" ]; then
     rm -rf "$HAILO_TRAIN_DIR"
+    echo "    ✓ Removed: train"
 fi
 
-# Create fresh train directory  
+if [ -d "$HAILO_TRAIN_IMAGES_DIR" ]; then
+    rm -rf "$HAILO_TRAIN_IMAGES_DIR"
+    echo "    ✓ Removed: train_images"
+fi
+
+if [ -d "$HAILO_TRAIN_TEMP_DIR" ]; then
+    rm -rf "$HAILO_TRAIN_TEMP_DIR"
+    echo "    ✓ Removed: train_images_temp"
+fi
+
+# Create fresh train directory (this will be the ONLY source)
 mkdir -p "$HAILO_TRAIN_DIR"
 
-# Copy training images
-echo "  Copying training images..."
-cp -r "$TRAIN_DIR"/* "$HAILO_TRAIN_DIR/"
+# Copy training images from train_faces ONLY
+echo "  Copying images from train_faces directory: $TRAIN_DIR"
+if [ ! -d "$TRAIN_DIR" ] || [ -z "$(ls -A "$TRAIN_DIR")" ]; then
+    echo -e "${RED}[ERROR]${NC} train_faces directory is empty or does not exist: $TRAIN_DIR"
+    exit 1
+fi
 
-# Clean filenames (remove spaces and special characters)
+cp -r "$TRAIN_DIR"/* "$HAILO_TRAIN_DIR/"
+echo "    ✓ Copied images from train_faces to training directory"
+echo "    ✓ Training will use ONLY these images (no old images will be used)"
+
+# Clean filenames (remove spaces and special characters, filter hidden files)
 echo "  Cleaning filenames..."
-find "$HAILO_TRAIN_DIR" -type f -name "* *" | while read file; do
-    newfile=$(echo "$file" | tr ' ' '_' | sed 's/[^a-zA-Z0-9_\/.-]//g')
-    mv "$file" "$newfile" 2>/dev/null || true
+# First, remove macOS hidden files (._*)
+find "$HAILO_TRAIN_DIR" -type f -name "._*" -delete
+# Remove other hidden/system files
+find "$HAILO_TRAIN_DIR" -type f \( -name ".DS_Store" -o -name "Thumbs.db" \) -delete
+
+# Clean all filenames: replace spaces and special characters
+find "$HAILO_TRAIN_DIR" -type f | while read file; do
+    dir=$(dirname "$file")
+    filename=$(basename "$file")
+    
+    # Skip if already clean and no spaces/special chars
+    if [[ "$filename" =~ ^[a-zA-Z0-9_./-]+$ ]] && [[ ! "$filename" =~ [[:space:]] ]]; then
+        continue
+    fi
+    
+    # Clean filename: replace spaces with _, remove special chars except . - _
+    newfilename=$(echo "$filename" | tr ' ' '_' | sed 's/[^a-zA-Z0-9_.-]//g' | sed 's/__*/_/g')
+    
+    # Skip if empty or same
+    if [ -z "$newfilename" ] || [ "$filename" = "$newfilename" ]; then
+        continue
+    fi
+    
+    newfile="$dir/$newfilename"
+    if [ "$file" != "$newfile" ]; then
+        mv "$file" "$newfile" 2>/dev/null || true
+    fi
 done
 
 echo -e "  ${GREEN}✓${NC} Images prepared"
@@ -137,6 +203,28 @@ if [ -d "$HAILO_LOCAL_FACES" ]; then
     mv "$HAILO_LOCAL_FACES" "${HAILO_LOCAL_FACES}_backup"
     echo -e "  ${GREEN}✓${NC} Default samples disabled"
 fi
+echo ""
+
+# Remove old database and samples to start fresh (critical!)
+echo -e "${YELLOW}[SETUP]${NC} Removing old database and samples to ensure fresh training..."
+HAILO_DB_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/database"
+HAILO_SAMPLES_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/samples"
+
+if [ -d "$HAILO_DB_DIR" ]; then
+    rm -rf "$HAILO_DB_DIR"
+    echo -e "  ${GREEN}✓${NC} Removed old database"
+fi
+
+if [ -d "$HAILO_SAMPLES_DIR" ]; then
+    rm -rf "$HAILO_SAMPLES_DIR"
+    echo -e "  ${GREEN}✓${NC} Removed old samples"
+fi
+
+# Create fresh directories
+mkdir -p "$HAILO_DB_DIR"
+mkdir -p "$HAILO_SAMPLES_DIR"
+echo -e "  ${GREEN}✓${NC} Created fresh database and samples directories"
+echo -e "  ${GREEN}✓${NC} Training will start from scratch with ONLY train_faces images"
 echo ""
 
 # Activate venv and run training

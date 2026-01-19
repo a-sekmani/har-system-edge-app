@@ -10,14 +10,34 @@ HAR-System is an intelligent edge AI system for **real-time human activity recog
 
 ### ✨ Key Features
 
-- ✅ **Stable Multi-Person Tracking** - Persistent Track IDs across frames
-- ✅ **17 Keypoints Extraction** - Full body pose estimation per person
-- ✅ **Activity Classification** - Automatic: standing, moving, sitting detection
-- ✅ **Fall Detection** - Configurable sensitivity for safety applications
-- ✅ **Face Recognition** - Identify persons by name with LanceDB
-- ✅ **Normalized Metrics** - Camera-independent measurements
-- ✅ **Data Export** - JSON export for post-processing and analysis
-- ✅ **Modular Architecture** - Easy to extend and customize
+**Core Recognition & Tracking:**
+- ✅ **Stable Multi-Person Tracking** - Persistent Track IDs across frames with temporal consistency
+- ✅ **17 Keypoints Extraction** - Full body pose estimation per person using Hailo-8 AI accelerator
+- ✅ **Activity Classification** - Automatic detection: standing, moving, sitting with temporal analysis
+- ✅ **Fall Detection** - Configurable sensitivity for safety applications with time-based validation
+
+**Face Recognition System:**
+- ✅ **Face Recognition** - Real-time person identification by name using LanceDB
+- ✅ **Face Training** - Train the system with custom images for specific persons
+- ✅ **Face Database Management** - Add, remove, list, and manage recognized persons
+
+**Advanced Capabilities:**ؤ
+- ✅ **ChokePoint Dataset Analysis** - Analyze pedestrian datasets for person tracking evaluation
+- ✅ **Normalized Metrics** - Camera-independent measurements (resolution and distance independent)
+- ✅ **Temporal Tracking** - History-based activity tracking with configurable time windows
+- ✅ **Multiple Input Sources** - Support for Raspberry Pi camera and USB cameras
+
+**Performance & Data:**
+- ✅ **Performance Mode** - No-display mode for maximum performance in production
+- ✅ **Real-time FPS Monitoring** - Built-in performance metrics and frame rate display
+- ✅ **Data Export** - JSON export for post-processing, analysis, and integration
+- ✅ **Configurable Thresholds** - Customizable sensitivity for all detection algorithms
+
+**Developer Experience:**
+- ✅ **Unified CLI** - Single entry point with multiple commands (realtime, train-faces, faces, chokepoint)
+- ✅ **Comprehensive Testing** - Full test suite with unit and component tests using pytest
+- ✅ **Modular Architecture** - Easy to extend and customize with clean separation of concerns
+- ✅ **YAML Configuration** - Flexible configuration system for all system parameters
 
 ---
 

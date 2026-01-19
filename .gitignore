@@ -44,17 +44,16 @@ coverage/
 infra-venv/
 hailo_infra_venv/
 .env
-
 .pytest_cache/
-
 tmp_venv
-
 venv_hailo_apps/
 venv/
-doc/
 
 resources/
 resources
+
+database/
+doc/
 
 # IDE configuration files (user-specific)
 .vscode/launch.json

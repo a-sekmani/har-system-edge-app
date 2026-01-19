@@ -274,17 +274,43 @@ class DatabaseHandler:
 
     def clear_table(self) -> None:
         """Deletes all records from the LanceDB table."""
-        to_delete = ", ".join(
-            [f"'{record['global_id']}'" for record in self.tbl_records.search().to_list()]
-        )  # Get all records
+        # Get all records
+        records = self.tbl_records.search().to_list()
+        
+        if not records:
+            print("Database is already empty")
+            # Still clear samples directory
+            self._clear_samples_directory()
+            return
+        
+        # Build delete query with all global_ids
+        to_delete = ", ".join([f"'{record['global_id']}'" for record in records])
         self.tbl_records.delete(f"global_id IN ({to_delete})")
+        
         # Clear all files from the self.samples_dir folder
+        self._clear_samples_directory()
+        
+        # Verify deletion
+        remaining = self.tbl_records.search().to_list()
+        if remaining:
+            print(f"Warning: {len(remaining)} records still remain after clear")
+        else:
+            print("All records deleted from the database")
+    
+    def _clear_samples_directory(self) -> None:
+        """Clear all files from samples directory"""
         if os.path.exists(self.samples_dir):
-            for filename in os.listdir(self.samples_dir):
-                file_path = os.path.join(self.samples_dir, filename)
-                if os.path.isfile(file_path):
-                    os.remove(file_path)
-        print("All records deleted from the database")
+            import shutil
+            try:
+                # Remove all files and subdirectories
+                for item in os.listdir(self.samples_dir):
+                    item_path = os.path.join(self.samples_dir, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+            except Exception as e:
+                print(f"Warning: Could not clear samples directory: {e}")
 
     def clear_unknown_labels(self) -> None:
         """Deletes all records from the LanceDB table with the label 'Unknown'."""

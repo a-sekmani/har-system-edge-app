@@ -8,6 +8,7 @@ Train the face recognition system with new persons using hailo-apps pipeline
 import sys
 import os
 import shutil
+import re
 from pathlib import Path
 
 # Add project root to path
@@ -54,6 +55,19 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
     print(f"[CONFIG] Training Directory: {train_dir}")
     print(f"[CONFIG] Database Directory: {database_dir}")
     print(f"[CONFIG] Confidence Threshold: {confidence_threshold}")
+    print()
+    
+    # CRITICAL: Clear old database before training to prevent mixing old and new data
+    print("[CLEANUP] Clearing old database to start fresh training...")
+    face_recog_temp = HailoFaceRecognition(
+        database_dir=str(database_dir),
+        samples_dir=str(database_dir / "samples")
+    )
+    if face_recog_temp.is_enabled():
+        face_recog_temp.clear_database()
+        print("[CLEANUP] Old database cleared - training will use ONLY train_faces images")
+    else:
+        print("[CLEANUP] No old database found - will create fresh database")
     print()
     
     # Scan and display found persons (helps confirm the folder layout before training).
@@ -110,18 +124,58 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
         
         # Setup temporary training directory in hailo-apps structure
         hailo_apps_root = Path(__file__).resolve().parents[4]  # Go up to hailo-apps root
-        temp_train_dir = hailo_apps_root / "hailo_apps" / "python" / "pipeline_apps" / "face_recognition" / "train_images_temp"
+        face_recog_dir = hailo_apps_root / "hailo_apps" / "python" / "pipeline_apps" / "face_recognition"
+        
+        # Define all possible training directories that might contain old images
+        temp_train_dir = face_recog_dir / "train_images_temp"
+        train_dir_default = face_recog_dir / "train"
+        train_images_dir = face_recog_dir / "train_images"
         
         # Create temp directory and copy images
         print("[SETUP] Preparing training environment...")
-        if temp_train_dir.exists():
-            shutil.rmtree(temp_train_dir)
-        temp_train_dir.mkdir(parents=True, exist_ok=True)
+        print("  Cleaning ALL old training directories to ensure only train_faces is used...")
         
-        # Copy all person folders
+        # Remove ALL old training directories (comprehensive cleanup)
+        old_dirs = [temp_train_dir, train_dir_default, train_images_dir]
+        for old_dir in old_dirs:
+            if old_dir.exists():
+                try:
+                    shutil.rmtree(old_dir)
+                    print(f"    ✓ Removed: {old_dir.name}")
+                except Exception as e:
+                    print(f"    ⚠ Warning: Could not remove {old_dir.name}: {e}")
+        
+        # Create fresh temp directory (this will be the ONLY source of training images)
+        temp_train_dir.mkdir(parents=True, exist_ok=True)
+        print(f"  ✓ Created fresh training directory: {temp_train_dir.name}")
+        
+        # Copy all person folders from train_faces ONLY (no other sources)
+        print(f"  Copying images from train_faces directory: {train_dir}")
         for person_dir in subdirs:
             dest_person_dir = temp_train_dir / person_dir.name
             shutil.copytree(person_dir, dest_person_dir)
+            
+            # Clean filenames: remove hidden files and sanitize names
+            for img_file in dest_person_dir.rglob("*"):
+                if img_file.is_file():
+                    # Remove macOS hidden files (._*)
+                    if img_file.name.startswith("._"):
+                        img_file.unlink()
+                        continue
+                    
+                    # Remove system files
+                    if img_file.name in [".DS_Store", "Thumbs.db"]:
+                        img_file.unlink()
+                        continue
+                    
+                    # Clean filename if it contains spaces or special characters
+                    if " " in img_file.name or re.search(r'[^a-zA-Z0-9_.-]', img_file.name):
+                        clean_name = re.sub(r'[^a-zA-Z0-9_.-]', '_', img_file.name)
+                        clean_name = re.sub(r'_+', '_', clean_name)  # Replace multiple _ with single _
+                        if clean_name != img_file.name:
+                            new_path = img_file.parent / clean_name
+                            img_file.rename(new_path)
+            
             print(f"  ✓ Copied {person_dir.name}")
         print()
         
@@ -146,21 +200,65 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
             print("           • MobileFaceNet embedding extraction")
             print()
             
-            # Create app but override train directory
+            # CRITICAL: Remove old database and samples to start fresh
+            # This prevents old persons (like "Ahmad") from appearing in results
+            print("[CLEANUP] Removing old database and samples to ensure fresh training...")
+            if database_dir.exists():
+                # Remove old database files
+                for db_file in database_dir.glob("*.db"):
+                    db_file.unlink()
+                    print(f"  ✓ Removed old database: {db_file.name}")
+                
+                # Remove old persons.db directory if it exists
+                persons_db_dir = database_dir / "persons.db"
+                if persons_db_dir.exists() and persons_db_dir.is_dir():
+                    shutil.rmtree(persons_db_dir)
+                    print(f"  ✓ Removed old database directory: persons.db")
+            
+            # Remove old samples
+            samples_dir_path = database_dir / "samples"
+            if samples_dir_path.exists():
+                shutil.rmtree(samples_dir_path)
+                print(f"  ✓ Removed old samples directory")
+                samples_dir_path.mkdir(parents=True, exist_ok=True)
+                print(f"  ✓ Created fresh samples directory")
+            
+            print("[CLEANUP] Database and samples cleaned - training will start from scratch")
+            print()
+            
+            # Create app but override train directory to use ONLY our temp_train_dir
+            # This ensures no old images from other directories are used
             app = GStreamerFaceRecognitionApp(lambda e, b, u: None, user_data)
-            app.train_images_dir = temp_train_dir
+            app.train_images_dir = str(temp_train_dir)  # Use ONLY train_faces (copied to temp)
             app.database_dir = database_dir
             app.samples_dir = database_dir / "samples"
             app.db_handler.samples_dir = str(app.samples_dir)
+            
+            # Verify that train_images_dir contains ONLY our images from train_faces
+            train_images_path = Path(app.train_images_dir)
+            if not train_images_path.exists() or not any(train_images_path.iterdir()):
+                print(f"[ERROR] Training directory is empty: {app.train_images_dir}")
+                print("[ERROR] This should not happen - images should be copied from train_faces")
+                raise RuntimeError("Training directory is empty - no images from train_faces")
+            
+            # Count images to verify
+            person_dirs = [d for d in train_images_path.iterdir() if d.is_dir()]
+            total_images = sum(len(list(d.rglob("*.jpg"))) + len(list(d.rglob("*.jpeg"))) + len(list(d.rglob("*.png"))) for d in person_dirs)
+            
+            print(f"[VERIFY] Training will use ONLY images from train_faces:")
+            print(f"         Source: {train_dir}")
+            print(f"         Destination: {app.train_images_dir}")
+            print(f"         Persons: {len(person_dirs)}, Total images: {total_images}")
             
             # Ensure directories exist
             database_dir.mkdir(parents=True, exist_ok=True)
             app.samples_dir.mkdir(parents=True, exist_ok=True)
             
-            print("[TRAINING] Processing images...")
+            print()
+            print("[TRAINING] Processing images from train_faces ONLY...")
             print("="*60)
             
-            # Run training
+            # Run training (this will use ONLY the images we copied from train_faces)
             app.run_training()
             
             print()

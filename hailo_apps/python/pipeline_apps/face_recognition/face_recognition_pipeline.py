@@ -248,8 +248,15 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
         print(f"Training on images from {self.train_images_dir}")
         for person_name in os.listdir(self.train_images_dir):
             person_folder = os.path.join(self.train_images_dir, person_name)
-            if self.db_handler.get_record_by_label(label=person_name):
+            
+            # CRITICAL FIX: Don't skip if person already exists - this causes old data to remain
+            # Instead, we should have cleared the database before training
+            existing_record = self.db_handler.get_record_by_label(label=person_name)
+            if existing_record:
+                print(f"[WARNING] Person {person_name} already exists in database - skipping")
+                print(f"          To retrain, clear database first: python3 -m har_system faces --clear")
                 continue
+            
             if not os.path.isdir(person_folder):
                 continue
             print(f"Processing person: {person_name}")
