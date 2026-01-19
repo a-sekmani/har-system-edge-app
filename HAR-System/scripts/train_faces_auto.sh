@@ -120,7 +120,7 @@ echo ""
 cd "$HAILO_APPS_ROOT"
 
 # Check if venv exists
-if [ ! -d "venv_hailo_apps" ]; then
+if [ ! -d "venv" ]; then
     echo -e "${RED}[ERROR]${NC} Virtual environment not found"
     echo "Please run: cd $HAILO_APPS_ROOT && ./install.sh"
     exit 1
@@ -140,7 +140,7 @@ fi
 echo ""
 
 # Activate venv and run training
-source venv_hailo_apps/bin/activate
+source venv/bin/activate
 export PYTHONPATH="${HAILO_APPS_ROOT}:${PYTHONPATH}"
 
 python3 -m hailo_apps.python.pipeline_apps.face_recognition.face_recognition --mode train

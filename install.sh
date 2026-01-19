@@ -566,7 +566,7 @@ ${BOLD}USAGE:${NC}
     sudo $SCRIPT_NAME [OPTIONS]
 
 ${BOLD}OPTIONS:${NC}
-    -n, --venv-name NAME        Virtual environment name (default: from config or venv_hailo_apps)
+    -n, --venv-name NAME        Virtual environment name (default: from config or venv)
     -ph, --pyhailort PATH       Path to custom PyHailoRT wheel file
     -pt, --pytappas PATH        Path to custom PyTappas wheel file
     --all                       Download all available models/resources

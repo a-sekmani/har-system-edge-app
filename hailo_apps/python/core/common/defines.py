@@ -120,7 +120,7 @@ HOST_ARCH_DEFAULT = AUTO_DETECT
 HAILO_ARCH_DEFAULT = AUTO_DETECT
 MODEL_ZOO_VERSION_DEFAULT = "v2.17.0"
 RESOURCES_PATH_DEFAULT = RESOURCES_ROOT_PATH_DEFAULT
-VIRTUAL_ENV_NAME_DEFAULT = "venv_hailo_apps"
+VIRTUAL_ENV_NAME_DEFAULT = "venv"
 
 # Default TAPPAS post-processing directory - set via environment variable during installation
 # The installer runs: pkg-config --variable=tappas_postproc_lib_dir hailo-tappas-core

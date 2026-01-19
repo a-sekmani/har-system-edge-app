@@ -60,7 +60,7 @@ valid_model_zoo_versions:
 # Virtual Environment
 #-------------------------------------------------------------------------------
 venv:
-  name: "venv_hailo_apps"
+  name: "venv"
   use_system_site_packages: true
 
 #-------------------------------------------------------------------------------

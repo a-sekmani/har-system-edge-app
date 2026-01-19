@@ -303,7 +303,7 @@ def get_venv_config() -> dict:
         Dictionary with 'name' and 'use_system_site_packages' keys
     """
     config = get_main_config()
-    return config.get("venv", {"name": "venv_hailo_apps", "use_system_site_packages": True})
+    return config.get("venv", {"name": "venv", "use_system_site_packages": True})
 
 
 def get_resources_path_config() -> dict:
