@@ -81,7 +81,8 @@ def main():
         train_main(
             train_dir=args.train_dir,
             database_dir=args.database_dir,
-            confidence_threshold=getattr(args, 'confidence_threshold', 0.70)
+            confidence_threshold=getattr(args, 'confidence_threshold', 0.70),
+            max_persons=getattr(args, 'max_persons', None)
         )
     
     elif args.command == 'faces':

@@ -22,6 +22,7 @@ echo ""
 # Parse arguments
 TRAIN_DIR="${HAR_SYSTEM_ROOT}/train_faces"
 DATABASE_DIR="${HAR_SYSTEM_ROOT}/database"
+MAX_PERSONS=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -31,6 +32,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --database-dir)
             DATABASE_DIR="$2"
+            shift 2
+            ;;
+        --max-persons)
+            MAX_PERSONS="$2"
             shift 2
             ;;
         *)
@@ -54,25 +59,20 @@ DATABASE_DIR="$(cd "$(dirname "$DATABASE_DIR")" 2>/dev/null && pwd)/$(basename "
 
 echo -e "${GREEN}[CONFIG]${NC} Training Directory: $TRAIN_DIR"
 echo -e "${GREEN}[CONFIG]${NC} Database Directory: $DATABASE_DIR"
+if [ -n "$MAX_PERSONS" ]; then
+    echo -e "${GREEN}[CONFIG]${NC} Max Persons: $MAX_PERSONS (for testing)"
+fi
 echo ""
 
-# CRITICAL: Clear old HAR-System database before training
-echo -e "${YELLOW}[CLEANUP]${NC} Clearing old HAR-System database to start fresh..."
-if [ -d "$DATABASE_DIR" ]; then
-    # Remove old database
-    find "$DATABASE_DIR" -name "*.db" -type f -delete 2>/dev/null || true
-    find "$DATABASE_DIR" -name "*.db" -type d -exec rm -rf {} + 2>/dev/null || true
-    # Remove old samples
-    if [ -d "$DATABASE_DIR/samples" ]; then
-        rm -rf "$DATABASE_DIR/samples"
-        mkdir -p "$DATABASE_DIR/samples"
-    fi
-    echo -e "  ${GREEN}✓${NC} Old HAR-System database cleared"
+# Check existing database (do NOT clear it - we'll update it intelligently)
+echo -e "${YELLOW}[DATABASE]${NC} Checking existing database..."
+if [ -d "$DATABASE_DIR" ] && [ -d "$DATABASE_DIR/persons.db" ]; then
+    echo -e "  ${GREEN}✓${NC} Existing database found - will update with new images"
+    echo -e "  ${GREEN}✓${NC} Old data will be preserved, new images will be added"
 else
     mkdir -p "$DATABASE_DIR/samples"
-    echo -e "  ${GREEN}✓${NC} Created fresh database directory"
+    echo -e "  ${GREEN}✓${NC} No existing database - will create fresh database"
 fi
-echo -e "  ${GREEN}✓${NC} Training will use ONLY train_faces images (no old data)"
 echo ""
 
 # Check for images
@@ -124,8 +124,21 @@ if [ ! -d "$TRAIN_DIR" ] || [ -z "$(ls -A "$TRAIN_DIR")" ]; then
     exit 1
 fi
 
-cp -r "$TRAIN_DIR"/* "$HAILO_TRAIN_DIR/"
-echo "    ✓ Copied images from train_faces to training directory"
+# Apply max_persons limit if specified
+if [ -n "$MAX_PERSONS" ] && [ "$MAX_PERSONS" -gt 0 ]; then
+    echo "  Limiting to first $MAX_PERSONS persons for testing..."
+    person_count=0
+    for person_dir in "$TRAIN_DIR"/*; do
+        if [ -d "$person_dir" ] && [ "$person_count" -lt "$MAX_PERSONS" ]; then
+            cp -r "$person_dir" "$HAILO_TRAIN_DIR/"
+            person_count=$((person_count + 1))
+        fi
+    done
+    echo "    ✓ Copied $person_count persons (limited by --max-persons)"
+else
+    cp -r "$TRAIN_DIR"/* "$HAILO_TRAIN_DIR/"
+    echo "    ✓ Copied all persons from train_faces to training directory"
+fi
 echo "    ✓ Training will use ONLY these images (no old images will be used)"
 
 # Clean filenames (remove spaces and special characters, filter hidden files)
@@ -205,26 +218,37 @@ if [ -d "$HAILO_LOCAL_FACES" ]; then
 fi
 echo ""
 
-# Remove old database and samples to start fresh (critical!)
-echo -e "${YELLOW}[SETUP]${NC} Removing old database and samples to ensure fresh training..."
+# Check hailo-apps database (preserve if exists)
+echo -e "${YELLOW}[SETUP]${NC} Checking hailo-apps database..."
 HAILO_DB_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/database"
 HAILO_SAMPLES_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/samples"
 
-if [ -d "$HAILO_DB_DIR" ]; then
-    rm -rf "$HAILO_DB_DIR"
-    echo -e "  ${GREEN}✓${NC} Removed old database"
+# Copy existing database from HAR-System to hailo-apps if it exists
+if [ -d "$DATABASE_DIR/persons.db" ]; then
+    echo -e "  ${YELLOW}⚙${NC} Existing database found in HAR-System"
+    echo -e "  ${YELLOW}⚙${NC} Copying to hailo-apps for training..."
+    
+    # Ensure directories exist
+    mkdir -p "$HAILO_DB_DIR"
+    mkdir -p "$HAILO_SAMPLES_DIR"
+    
+    # Copy database
+    cp -r "$DATABASE_DIR/persons.db" "$HAILO_DB_DIR/" 2>/dev/null || true
+    echo -e "  ${GREEN}✓${NC} Database copied"
+    
+    # Copy samples
+    if [ -d "$DATABASE_DIR/samples" ] && [ "$(ls -A $DATABASE_DIR/samples 2>/dev/null)" ]; then
+        cp -r "$DATABASE_DIR/samples"/* "$HAILO_SAMPLES_DIR/" 2>/dev/null || true
+        echo -e "  ${GREEN}✓${NC} Existing samples copied"
+    fi
+    
+    echo -e "  ${GREEN}✓${NC} Will update existing database with new images"
+else
+    # Create fresh directories
+    mkdir -p "$HAILO_DB_DIR"
+    mkdir -p "$HAILO_SAMPLES_DIR"
+    echo -e "  ${GREEN}✓${NC} Created fresh database and samples directories"
 fi
-
-if [ -d "$HAILO_SAMPLES_DIR" ]; then
-    rm -rf "$HAILO_SAMPLES_DIR"
-    echo -e "  ${GREEN}✓${NC} Removed old samples"
-fi
-
-# Create fresh directories
-mkdir -p "$HAILO_DB_DIR"
-mkdir -p "$HAILO_SAMPLES_DIR"
-echo -e "  ${GREEN}✓${NC} Created fresh database and samples directories"
-echo -e "  ${GREEN}✓${NC} Training will start from scratch with ONLY train_faces images"
 echo ""
 
 # Activate venv and run training
@@ -252,34 +276,31 @@ echo -e "${GREEN}[SUCCESS]${NC} Training completed!"
 echo "============================================================"
 echo ""
 
-# Copy database to HAR-System
+# Copy updated database back to HAR-System
 HAILO_DB_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/database"
 HAILO_SAMPLES_DIR="${HAILO_APPS_ROOT}/hailo_apps/python/pipeline_apps/face_recognition/samples"
 
 if [ -d "$HAILO_DB_DIR" ]; then
-    echo -e "${YELLOW}[COPY]${NC} Copying database to HAR-System..."
+    echo -e "${YELLOW}[COPY]${NC} Copying updated database back to HAR-System..."
     
-    # Remove old database if exists
-    if [ -d "$DATABASE_DIR" ]; then
-        echo "  Removing old database..."
-        rm -rf "$DATABASE_DIR"
-    fi
-    
-    # Create directory structure
+    # Create directory structure if doesn't exist
     mkdir -p "$DATABASE_DIR"
     
     # Copy entire database directory (persons.db is a directory in LanceDB)
     if [ -d "$HAILO_DB_DIR/persons.db" ]; then
+        # Remove old database first to ensure clean copy
+        rm -rf "$DATABASE_DIR/persons.db" 2>/dev/null || true
         cp -r "$HAILO_DB_DIR/persons.db" "$DATABASE_DIR/" 2>/dev/null || true
-        echo -e "  ${GREEN}✓${NC} Database copied"
+        echo -e "  ${GREEN}✓${NC} Updated database copied"
     else
         echo -e "  ${RED}✗${NC} Database not found!"
     fi
     
-    # Copy samples directory
+    # Copy samples directory (merge with existing)
     if [ -d "$HAILO_SAMPLES_DIR" ] && [ "$(ls -A $HAILO_SAMPLES_DIR 2>/dev/null)" ]; then
-        cp -r "$HAILO_SAMPLES_DIR" "$DATABASE_DIR/samples" 2>/dev/null || true
-        echo -e "  ${GREEN}✓${NC} Samples copied"
+        mkdir -p "$DATABASE_DIR/samples"
+        cp -r "$HAILO_SAMPLES_DIR"/* "$DATABASE_DIR/samples/" 2>/dev/null || true
+        echo -e "  ${GREEN}✓${NC} Updated samples copied (merged with existing)"
     else
         echo -e "  ${YELLOW}⚠${NC} No samples found"
     fi

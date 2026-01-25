@@ -17,7 +17,7 @@ sys.path.insert(0, str(project_root))
 
 from har_system.integrations import HailoFaceRecognition
 
-def main(train_dir='./train_faces', database_dir='./database', confidence_threshold=0.70):
+def main(train_dir='./train_faces', database_dir='./database', confidence_threshold=0.70, max_persons=None):
     """
     Main training entry point - uses hailo-apps face_recognition for actual training
     
@@ -25,6 +25,7 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
         train_dir: Directory containing training images
         database_dir: Database directory
         confidence_threshold: Recognition confidence threshold
+        max_persons: Maximum number of persons to train (None = all)
     """
     print("="*60)
     print("HAR-System: Face Recognition Training")
@@ -52,22 +53,38 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
         print(f"  {train_dir}/PersonName/photo1.jpg")
         sys.exit(1)
     
+    # Apply max_persons limit if specified
+    if max_persons is not None and max_persons > 0:
+        if len(subdirs) > max_persons:
+            print(f"[LIMIT] Found {len(subdirs)} persons, limiting to first {max_persons} for testing")
+            subdirs = sorted(subdirs)[:max_persons]
+        else:
+            print(f"[INFO] Found {len(subdirs)} persons (max_persons={max_persons} not reached)")
+    
     print(f"[CONFIG] Training Directory: {train_dir}")
     print(f"[CONFIG] Database Directory: {database_dir}")
     print(f"[CONFIG] Confidence Threshold: {confidence_threshold}")
+    if max_persons is not None:
+        print(f"[CONFIG] Max Persons: {max_persons}")
     print()
     
-    # CRITICAL: Clear old database before training to prevent mixing old and new data
-    print("[CLEANUP] Clearing old database to start fresh training...")
+    # Check existing database and show what will be updated
+    print("[DATABASE] Checking existing database...")
     face_recog_temp = HailoFaceRecognition(
         database_dir=str(database_dir),
         samples_dir=str(database_dir / "samples")
     )
     if face_recog_temp.is_enabled():
-        face_recog_temp.clear_database()
-        print("[CLEANUP] Old database cleared - training will use ONLY train_faces images")
+        existing_persons = face_recog_temp.list_known_persons()
+        if existing_persons:
+            print(f"[DATABASE] Found {len(existing_persons)} existing person(s) in database:")
+            for person in existing_persons:
+                print(f"  - {person}")
+            print("[DATABASE] Will add new images for existing persons and create new persons as needed")
+        else:
+            print("[DATABASE] Database is empty - will create fresh database")
     else:
-        print("[CLEANUP] No old database found - will create fresh database")
+        print("[DATABASE] No database found - will create fresh database")
     print()
     
     # Scan and display found persons (helps confirm the folder layout before training).
@@ -99,8 +116,12 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
         
         import subprocess
         try:
+            cmd = [str(script_path), "--train-dir", str(train_dir), "--database-dir", str(database_dir)]
+            if max_persons is not None:
+                cmd.extend(["--max-persons", str(max_persons)])
+            
             result = subprocess.run(
-                [str(script_path), "--train-dir", str(train_dir), "--database-dir", str(database_dir)],
+                cmd,
                 check=True,
                 capture_output=False,
                 text=True
@@ -200,30 +221,11 @@ def main(train_dir='./train_faces', database_dir='./database', confidence_thresh
             print("           • MobileFaceNet embedding extraction")
             print()
             
-            # CRITICAL: Remove old database and samples to start fresh
-            # This prevents old persons (like "Ahmad") from appearing in results
-            print("[CLEANUP] Removing old database and samples to ensure fresh training...")
-            if database_dir.exists():
-                # Remove old database files
-                for db_file in database_dir.glob("*.db"):
-                    db_file.unlink()
-                    print(f"  ✓ Removed old database: {db_file.name}")
-                
-                # Remove old persons.db directory if it exists
-                persons_db_dir = database_dir / "persons.db"
-                if persons_db_dir.exists() and persons_db_dir.is_dir():
-                    shutil.rmtree(persons_db_dir)
-                    print(f"  ✓ Removed old database directory: persons.db")
-            
-            # Remove old samples
+            # Ensure samples directory exists
             samples_dir_path = database_dir / "samples"
-            if samples_dir_path.exists():
-                shutil.rmtree(samples_dir_path)
-                print(f"  ✓ Removed old samples directory")
+            if not samples_dir_path.exists():
                 samples_dir_path.mkdir(parents=True, exist_ok=True)
-                print(f"  ✓ Created fresh samples directory")
-            
-            print("[CLEANUP] Database and samples cleaned - training will start from scratch")
+                print(f"[SETUP] Created samples directory")
             print()
             
             # Create app but override train directory to use ONLY our temp_train_dir
@@ -341,10 +343,13 @@ if __name__ == "__main__":
     parser.add_argument('--train-dir', type=str, default='./train_faces')
     parser.add_argument('--database-dir', type=str, default='./database')
     parser.add_argument('--confidence-threshold', type=float, default=0.70)
+    parser.add_argument('--max-persons', type=int, default=None, 
+                       help='Maximum number of persons to train (useful for testing)')
     args = parser.parse_args()
     
     main(
         train_dir=args.train_dir,
         database_dir=args.database_dir,
-        confidence_threshold=args.confidence_threshold
+        confidence_threshold=args.confidence_threshold,
+        max_persons=args.max_persons
     )

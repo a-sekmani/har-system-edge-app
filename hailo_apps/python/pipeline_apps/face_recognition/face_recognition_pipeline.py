@@ -112,6 +112,7 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
         self.current_file = None  # for train mode
         self.processed_names = set()  # ((key-name, val-global_id)) for train mode - pipeline will be playing for 2 seconds, so we need to ensure each person will be processed only once
         self.processed_files = set()  # for train mode - pipeline will be playing for 2 seconds, so we need to ensure each file will be processed only once
+        self.processed_image_hashes = {}  # Track processed images by hash to avoid duplicates: {person_name: set(hashes)}
 
         # Resolve HEF paths for multi-model app (face detection + face recognition)
         # Uses --hef-path arguments if provided, otherwise uses defaults
@@ -231,7 +232,7 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
         """
         Iterate over the training folder structured with subfolders (person names),
         generates embeddings for each image, and stores them in the database with the person's name.
-        In case training folder is empty - copy from the defaukt local resources folder the exmpale training images.
+        Intelligently updates existing persons with new images or creates new persons.
         """
         # Check if the directory is empty
         if not os.listdir(self.train_images_dir):
@@ -246,22 +247,74 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
                     shutil.copy2(source_path, destination_path)
 
         print(f"Training on images from {self.train_images_dir}")
+        
+        # Load existing samples to avoid reprocessing
+        print("[SMART-TRAIN] Loading existing database records...")
+        existing_records = {}
+        try:
+            all_records = self.db_handler.get_all_records()
+            for record in all_records:
+                person_name = record['label']
+                # Extract source filenames from samples metadata
+                existing_source_files = set()
+                for sample_data in record['samples_json']:
+                    if 'source_filename' in sample_data:
+                        existing_source_files.add(sample_data['source_filename'])
+                
+                existing_records[person_name] = {
+                    'record': record,
+                    'sample_paths': set(s['sample_path'] for s in record['samples_json']),
+                    'source_filenames': existing_source_files
+                }
+                print(f"[SMART-TRAIN] Found existing person: {person_name} with {len(record['samples_json'])} samples")
+        except Exception as e:
+            print(f"[SMART-TRAIN] No existing database or error loading: {e}")
+        
+        print()
+        
         for person_name in os.listdir(self.train_images_dir):
             person_folder = os.path.join(self.train_images_dir, person_name)
             
-            # CRITICAL FIX: Don't skip if person already exists - this causes old data to remain
-            # Instead, we should have cleared the database before training
-            existing_record = self.db_handler.get_record_by_label(label=person_name)
-            if existing_record:
-                print(f"[WARNING] Person {person_name} already exists in database - skipping")
-                print(f"          To retrain, clear database first: python3 -m har_system faces --clear")
-                continue
-            
             if not os.path.isdir(person_folder):
                 continue
-            print(f"Processing person: {person_name}")
-            for image_file in os.listdir(person_folder):
-                print(f"Processing image: {image_file}")
+                
+            # Check if person exists in database
+            is_new_person = person_name not in existing_records
+            
+            if is_new_person:
+                print(f"[NEW PERSON] {person_name} - will create new record")
+            else:
+                existing_count = len(existing_records[person_name]['sample_paths'])
+                print(f"[UPDATE] {person_name} - has {existing_count} existing samples, will check for new images")
+            
+            # Filter images based on source filename
+            all_images = [f for f in os.listdir(person_folder) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            new_images = []
+            skipped_count = 0
+            
+            if not is_new_person:
+                # Filter out images that are already in database by checking source_filename
+                existing_source_files = existing_records[person_name]['source_filenames']
+                for image_file in all_images:
+                    if image_file not in existing_source_files:
+                        new_images.append(image_file)
+                    else:
+                        skipped_count += 1
+                
+                if skipped_count > 0:
+                    print(f"  [SKIP] {skipped_count} image(s) already processed")
+            else:
+                new_images = all_images
+            
+            if not new_images:
+                print(f"[SKIP] {person_name} - no new images to process")
+                print()
+                continue
+            
+            print(f"[PROCESSING] {person_name} - {len(new_images)} new image(s)")
+            
+            for image_file in new_images:
+                print(f"  Processing image: {image_file}")
                 self.current_file = os.path.join(person_folder, image_file)
                 self.create_pipeline()
                 self.connect_train_vector_db_callback()
@@ -269,11 +322,32 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
                     self.pipeline.set_state(Gst.State.PLAYING)
                     time.sleep(2)
                 except Exception as e:
-                    print(f"Error processing image {image_file}: {e}")
+                    print(f"  Error processing image {image_file}: {e}")
                 finally:
                     if self.pipeline:
                         self.pipeline.set_state(Gst.State.NULL)
+            print()
+        
         print("Training completed")
+        
+        # Show final statistics
+        print("\n" + "="*60)
+        print("[STATISTICS] Training Summary")
+        print("="*60)
+        try:
+            final_records = self.db_handler.get_all_records()
+            for record in final_records:
+                person_name = record['label']
+                sample_count = len(record['samples_json'])
+                if person_name in existing_records:
+                    old_count = len(existing_records[person_name]['sample_paths'])
+                    new_count = sample_count - old_count
+                    print(f"  {person_name}: {sample_count} total ({old_count} existing + {new_count} new)")
+                else:
+                    print(f"  {person_name}: {sample_count} total (NEW)")
+        except Exception as e:
+            print(f"  Could not load statistics: {e}")
+        print("="*60)
 
     def connect_vector_db_callback(self):
         identity = self.pipeline.get_by_name(self.vector_db_callback_name)
@@ -419,11 +493,29 @@ class GStreamerFaceRecognitionApp(GStreamerApp):
             image_path = os.path.join(self.samples_dir, f"{uuid.uuid4()}.jpeg")
             self.add_task('save_image', frame=cropped_frame, image_path=image_path)
             name = os.path.basename(os.path.dirname(self.current_file))
+            
+            # Extract source filename for tracking
+            source_filename = os.path.basename(self.current_file)
+            
             if self.is_name_processed(name):
-                self.db_handler.insert_new_sample(record=self.db_handler.get_record_by_id(self.get_processed_names_by_name(name)), embedding=embedding_vector, sample=image_path, timestamp=int(time.time())) 
+                # Add metadata with source filename
+                self.db_handler.insert_new_sample(
+                    record=self.db_handler.get_record_by_id(self.get_processed_names_by_name(name)), 
+                    embedding=embedding_vector, 
+                    sample=image_path, 
+                    timestamp=int(time.time()),
+                    source_filename=source_filename
+                ) 
                 print(f"Adding face to: {name}")
             else: 
-                person = self.db_handler.create_record(embedding=embedding_vector, sample=image_path, timestamp=int(time.time()), label=name)
+                # Create new record with metadata including source filename
+                person = self.db_handler.create_record(
+                    embedding=embedding_vector, 
+                    sample=image_path, 
+                    timestamp=int(time.time()), 
+                    label=name,
+                    source_filename=source_filename
+                )
                 print(f"New person added with ID: {person['global_id']}")
                 self.processed_names.add((name, person['global_id']))
             self.processed_files.add(self.current_file)

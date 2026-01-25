@@ -93,7 +93,7 @@ class DatabaseHandler:
         return table
 
     def create_record(
-        self, embedding: np.ndarray, sample: str, timestamp: int, label: str = "Unknown"
+        self, embedding: np.ndarray, sample: str, timestamp: int, label: str = "Unknown", source_filename: str = None
     ) -> dict[str, Any]:
         """Creates a record in the LanceDB table and generates a global ID.
 
@@ -102,6 +102,7 @@ class DatabaseHandler:
             label (str) (optional): The label (e.g., name) associated with the record.
             sample (str) (required): The sample sample path.
             timestamp (int) (required): The timestamp of the sample.
+            source_filename (str) (optional): The original source image filename.
 
         Returns:
             record: The newly created record record as dict.
@@ -110,14 +111,20 @@ class DatabaseHandler:
 
         In case after this insertion there are more than 256 records in the table, the table will be indexed by the embedding column.
         """
+        sample_data = {
+            "embedding": embedding.tolist(), 
+            "sample_path": sample, 
+            "id": str(uuid.uuid4())
+        }
+        if source_filename:
+            sample_data["source_filename"] = source_filename
+        
         record = Record(
             global_id=str(uuid.uuid4()),
             label=label,
             avg_embedding=embedding.tolist(),
             last_sample_recieved_time=timestamp,
-            samples_json=json.dumps(
-                [{"embedding": embedding.tolist(), "sample_path": sample, "id": str(uuid.uuid4())}]
-            ),
+            samples_json=json.dumps([sample_data]),
             classificaiton_confidence_threshold=self.classificaiton_confidence_threshold,
         )
         self.tbl_records.add([record])
@@ -128,7 +135,7 @@ class DatabaseHandler:
         return record.model_dump()
 
     def insert_new_sample(
-        self, record: dict[str, Any], embedding: np.ndarray, sample: str, timestamp: int
+        self, record: dict[str, Any], embedding: np.ndarray, sample: str, timestamp: int, source_filename: str = None
     ) -> None:
         """Adds a new sample to a record, creates for the sample id and recalculates the average embedding.
 
@@ -137,11 +144,18 @@ class DatabaseHandler:
             embedding (np.ndarray): The sample embedding vector.
             sample (str): The sample sample path.
             timestamp (int): The timestamp of the sample.
+            source_filename (str) (optional): The original source image filename.
         """
         samples = record["samples_json"]
-        samples.append(
-            {"embedding": embedding.tolist(), "sample_path": sample, "id": str(uuid.uuid4())}
-        )
+        sample_data = {
+            "embedding": embedding.tolist(), 
+            "sample_path": sample, 
+            "id": str(uuid.uuid4())
+        }
+        if source_filename:
+            sample_data["source_filename"] = source_filename
+        
+        samples.append(sample_data)
         all_embeddings = [
             np.array(sample["embedding"]) for sample in samples
         ]  # Recalculate the average embedding

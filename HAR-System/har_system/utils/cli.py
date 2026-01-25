@@ -102,6 +102,14 @@ def add_train_faces_arguments(parser: argparse.ArgumentParser) -> None:
         default=0.70,
         help='Recognition confidence threshold (default: 0.70)'
     )
+    
+    # This argument is used to limit the number of persons to train (useful for testing)
+    parser.add_argument(
+        '--max-persons',
+        type=int,
+        default=None,
+        help='Maximum number of persons to train (default: all, useful for testing with --max-persons 5)'
+    )
 
 def add_faces_arguments(parser: argparse.ArgumentParser) -> None:
     """Add faces management CLI arguments to an existing argparse parser."""

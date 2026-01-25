@@ -21,7 +21,7 @@ HAR-System is an intelligent edge AI system for **real-time human activity recog
 - ✅ **Face Training** - Train the system with custom images for specific persons
 - ✅ **Face Database Management** - Add, remove, list, and manage recognized persons
 
-**Advanced Capabilities:**ؤ
+**Advanced Capabilities:**
 - ✅ **ChokePoint Dataset Analysis** - Analyze pedestrian datasets for person tracking evaluation
 - ✅ **Normalized Metrics** - Camera-independent measurements (resolution and distance independent)
 - ✅ **Temporal Tracking** - History-based activity tracking with configurable time windows
@@ -172,6 +172,14 @@ python3 -m har_system train-faces --train-dir ./train_faces
 
 # Step 3: Verify training
 python3 -m har_system faces --list
+```
+
+#### Train only a limited number of persons (testing)
+
+Use `--max-persons` to limit how many person folders are trained (useful for quick testing on a subset, e.g. 5 persons):
+
+```bash
+python3 -m har_system train-faces --train-dir ./train_faces --max-persons 5
 ```
 
 #### Managing Faces Database
