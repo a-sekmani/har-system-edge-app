@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: hailo-apps
+Version: 25.12.0
+Summary: Hailo AI applications and pipelines package
+Author: Hailo
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: setproctitle
+Requires-Dist: opencv-python<=4.10.0.84
+Requires-Dist: python-dotenv
+Requires-Dist: pyyaml
+Requires-Dist: Pillow
+Requires-Dist: lancedb
+Requires-Dist: tokenizers
+Requires-Dist: loguru
+Requires-Dist: scipy>=1.9.3
+Requires-Dist: lap
+Requires-Dist: cython_bbox
+Requires-Dist: tqdm
+Provides-Extra: dev
+Requires-Dist: ruff>=0.5.7; extra == "dev"
+Requires-Dist: pre-commit>=3.7.0; extra == "dev"
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-timeout>=2.0.0; extra == "dev"
+Provides-Extra: gen-ai
+Requires-Dist: PyAudio; extra == "gen-ai"
+Requires-Dist: piper-tts; extra == "gen-ai"
+Requires-Dist: sounddevice==0.5.1; extra == "gen-ai"
+Requires-Dist: webrtcvad-wheels; extra == "gen-ai"
+Provides-Extra: ocr
+Requires-Dist: paddlepaddle; extra == "ocr"
+Requires-Dist: shapely; extra == "ocr"
+Requires-Dist: pyclipper; extra == "ocr"
+Requires-Dist: symspellpy; extra == "ocr"
+Provides-Extra: speech-rec
+Requires-Dist: transformers==4.50.1; extra == "speech-rec"
+Requires-Dist: sounddevice==0.5.1; extra == "speech-rec"
+Requires-Dist: torch==2.6.0; extra == "speech-rec"
+Requires-Dist: torchvision==0.21.0; extra == "speech-rec"
+Requires-Dist: streamlit; extra == "speech-rec"
+Dynamic: license-file

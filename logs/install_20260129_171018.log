@@ -1,0 +1,460 @@
+========================================
+Hailo Apps Infrastructure Installation
+Started: 2026-01-29 17:10:18
+Script: install.sh
+User: admin
+========================================
+
+[2026-01-29 17:10:18] [DEBUG] Loading configuration from: /home/admin/har-system-edge-app-v0.2/hailo_apps/config/config.yaml
+[2026-01-29 17:10:18] [DEBUG] Parsing config.yaml...
+[2026-01-29 17:10:18] [SUCCESS] Configuration loaded from config.yaml
+[2026-01-29 17:10:18] [DEBUG]   VENV_NAME=venv_hailo_apps
+[2026-01-29 17:10:18] [DEBUG]   USE_SYSTEM_SITE_PACKAGES=true
+[2026-01-29 17:10:18] [DEBUG]   RESOURCES_ROOT=/usr/local/hailo/resources
+[2026-01-29 17:10:18] [DEBUG]   RESOURCES_SYMLINK_NAME=resources
+[2026-01-29 17:10:18] [DEBUG]   DOWNLOAD_GROUP=default
+[2026-01-29 17:10:18] [DEBUG]   ENV_FILE=/usr/local/hailo/resources/.env
+[2026-01-29 17:10:18] [DEBUG]   SYSTEM_PACKAGES=meson ninja-build portaudio19-dev python3-gi python3-gi-cairo libbz2-dev liblzma-dev libelf-dev libunwind-dev libdw-dev
+[2026-01-29 17:10:18] [DEBUG]   VALID_HAILORT_VERSIONS=4.23.0 5.1.1 5.2.0
+[2026-01-29 17:10:18] [DEBUG]   VALID_TAPPAS_VERSIONS=5.1.0 5.2.0
+[2026-01-29 17:10:18] [DEBUG]   VALID_HAILO_ARCH=hailo8 hailo8l hailo10h
+[2026-01-29 17:10:18] [DEBUG]   MODEL_ZOO_MAPPING=hailo8=v2.17.0 hailo8l=v2.17.0 hailo10h=v5.1.0
+[2026-01-29 17:10:18] [INFO] Configuration:
+[2026-01-29 17:10:18] [INFO]   Virtual Environment: venv_hailo_apps
+[2026-01-29 17:10:18] [INFO]   Download Group: default
+[2026-01-29 17:10:18] [INFO]   Resources Root: /usr/local/hailo/resources
+[2026-01-29 17:10:18] [INFO]   System Site-Packages: true
+[2026-01-29 17:10:18] [INFO]   Log File: /home/admin/har-system-edge-app-v0.2/logs/install_20260129_171018.log
+[2026-01-29 17:10:18] [DEBUG] Valid HailoRT versions: 4.23.0 5.1.1 5.2.0
+[2026-01-29 17:10:18] [DEBUG] Valid TAPPAS versions: 5.1.0 5.2.0
+[2026-01-29 17:10:18] [DEBUG] Valid Hailo architectures: hailo8 hailo8l hailo10h
+[2026-01-29 17:10:18] [DEBUG] Model Zoo mapping: hailo8=v2.17.0 hailo8l=v2.17.0 hailo10h=v5.1.0
+[2026-01-29 17:10:18] [STEP] Step 1/7: User Detection
+[2026-01-29 17:10:18] [SUCCESS] Detected user: admin
+[2026-01-29 17:10:18] [SUCCESS] Detected primary group: admin
+[2026-01-29 17:10:18] [DEBUG] User's primary group matches username
+[2026-01-29 17:10:18] [STEP] Step 2/7: Prerequisites Check
+[2026-01-29 17:10:18] [INFO] Checking installed Hailo components...
+[2026-01-29 17:10:18] [DEBUG] Running as user admin: /home/admin/har-system-edge-app-v0.2/scripts/check_installed_packages.sh
+[2026-01-29 17:10:22] [DEBUG] SUMMARY line: hailo_arch=hailo8 hailo_pci=4.23.0 hailort=4.23.0 pyhailort=4.23.0 tappas-core=5.1.0 tappas-python=5.1.0
+[2026-01-29 17:10:22] [INFO] Detected versions:
+[2026-01-29 17:10:22] [INFO]   Hailo Architecture: hailo8
+[2026-01-29 17:10:22] [INFO]   Driver: 4.23.0
+[2026-01-29 17:10:22] [INFO]   HailoRT: 4.23.0
+[2026-01-29 17:10:22] [INFO]   TAPPAS: 5.1.0
+[2026-01-29 17:10:22] [INFO]   Model Zoo Version: v2.17.0 (for hailo8)
+[2026-01-29 17:10:22] [SUCCESS] Prerequisites check passed
+[2026-01-29 17:10:22] [STEP] Step 3/7: System Package Installation
+[2026-01-29 17:10:22] [INFO] Installing system packages: meson ninja-build portaudio19-dev python3-gi python3-gi-cairo libbz2-dev liblzma-dev libelf-dev libunwind-dev libdw-dev
+[2026-01-29 17:10:22] [DEBUG] Updating apt cache...
+[2026-01-29 17:10:24] [DEBUG] Installing: meson
+[2026-01-29 17:10:25] [WARNING] Failed to install: meson
+[2026-01-29 17:10:25] [DEBUG] Installing: ninja-build
+[2026-01-29 17:10:26] [WARNING] Failed to install: ninja-build
+[2026-01-29 17:10:26] [DEBUG] Installing: portaudio19-dev
+[2026-01-29 17:10:27] [WARNING] Failed to install: portaudio19-dev
+[2026-01-29 17:10:27] [DEBUG] Installing: python3-gi
+[2026-01-29 17:10:28] [WARNING] Failed to install: python3-gi
+[2026-01-29 17:10:28] [DEBUG] Installing: python3-gi-cairo
+[2026-01-29 17:10:29] [WARNING] Failed to install: python3-gi-cairo
+[2026-01-29 17:10:29] [DEBUG] Installing: libbz2-dev
+[2026-01-29 17:10:30] [WARNING] Failed to install: libbz2-dev
+[2026-01-29 17:10:30] [DEBUG] Installing: liblzma-dev
+[2026-01-29 17:10:30] [WARNING] Failed to install: liblzma-dev
+[2026-01-29 17:10:30] [DEBUG] Installing: libelf-dev
+[2026-01-29 17:10:31] [WARNING] Failed to install: libelf-dev
+[2026-01-29 17:10:31] [DEBUG] Installing: libunwind-dev
+[2026-01-29 17:10:32] [WARNING] Failed to install: libunwind-dev
+[2026-01-29 17:10:32] [DEBUG] Installing: libdw-dev
+[2026-01-29 17:10:33] [WARNING] Failed to install: libdw-dev
+[2026-01-29 17:10:33] [WARNING] Some packages failed to install: meson ninja-build portaudio19-dev python3-gi python3-gi-cairo libbz2-dev liblzma-dev libelf-dev libunwind-dev libdw-dev
+[2026-01-29 17:10:33] [INFO] Installation will continue - these may not be required
+[2026-01-29 17:10:33] [STEP] Step 4/7: Resources Directory Setup
+[2026-01-29 17:10:33] [INFO] Creating resources directories at /usr/local/hailo/resources...
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/models/hailo8
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/models/hailo8l
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/models/hailo10h
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/videos
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/images
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/json
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/npy
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/so
+[2026-01-29 17:10:33] [DEBUG]   Created: /usr/local/hailo/resources/packages
+[2026-01-29 17:10:33] [DEBUG] Removing existing .env file
+[2026-01-29 17:10:33] [DEBUG] Removing: /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: rm -rf /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: rm -rf /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: touch /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: touch /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: chmod 644 /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: chmod 644 /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [DEBUG] Created .env file at /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [SUCCESS] Resources directories created
+[2026-01-29 17:10:33] [INFO]   Owner: admin:admin
+[2026-01-29 17:10:33] [INFO]   Location: /usr/local/hailo/resources
+[2026-01-29 17:10:33] [INFO]   Environment file: /usr/local/hailo/resources/.env
+[2026-01-29 17:10:33] [STEP] Step 5/7: Virtual Environment Setup
+[2026-01-29 17:10:33] [INFO] Cleaning up build artifacts...
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: find /home/admin/har-system-edge-app-v0.2 -name *.egg-info -type d -exec rm -rf {} +
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: find /home/admin/har-system-edge-app-v0.2 -name *.egg-info -type d -exec rm -rf {} +
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: rm -rf /home/admin/har-system-edge-app-v0.2/build/ /home/admin/har-system-edge-app-v0.2/dist/
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: rm -rf /home/admin/har-system-edge-app-v0.2/build/ /home/admin/har-system-edge-app-v0.2/dist/
+[2026-01-29 17:10:33] [DEBUG] Build artifacts cleaned
+[2026-01-29 17:10:33] [INFO] Creating virtualenv 'venv_hailo_apps' (with system site-packages)...
+[2026-01-29 17:10:33] [DEBUG] Executing as admin: python3 -m venv --system-site-packages /home/admin/har-system-edge-app-v0.2/venv_hailo_apps
+[2026-01-29 17:10:33] [DEBUG] Running as user admin: python3 -m venv --system-site-packages /home/admin/har-system-edge-app-v0.2/venv_hailo_apps
+[2026-01-29 17:10:36] [SUCCESS] Virtual environment created at /home/admin/har-system-edge-app-v0.2/venv_hailo_apps
+[2026-01-29 17:10:36] [STEP] Step 6/7: Python Package Installation
+[2026-01-29 17:10:36] [INFO] Upgrading pip, setuptools, and wheel...
+[2026-01-29 17:10:36] [DEBUG] Executing as admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -m pip install --upgrade pip setuptools wheel
+[2026-01-29 17:10:36] [DEBUG] Running as user admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -m pip install --upgrade pip setuptools wheel
+[2026-01-29 17:10:41] [INFO] Installing hailo_apps package (editable mode)...
+[2026-01-29 17:10:41] [DEBUG] Executing as admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && pip install -e '/home/admin/har-system-edge-app-v0.2'
+[2026-01-29 17:10:41] [DEBUG] Running as user admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && pip install -e '/home/admin/har-system-edge-app-v0.2'
+[2026-01-29 17:11:57] [SUCCESS] Python packages installed
+[2026-01-29 17:11:57] [STEP] Step 7/7: Post-Installation
+[2026-01-29 17:11:57] [DEBUG] Fixing ownership of project directory...
+[2026-01-29 17:11:57] [DEBUG] Fixing ownership of /home/admin/har-system-edge-app-v0.2 to admin:admin
+[2026-01-29 17:11:57] [DEBUG] Fixing ownership of /usr/local/hailo/resources to admin:admin
+[2026-01-29 17:11:57] [INFO] Running post-installation as user: admin
+[2026-01-29 17:11:57] [INFO] Download group: default
+[2026-01-29 17:11:57] [INFO] Setting up resources symlink...
+[2026-01-29 17:11:57] [DEBUG]   Symlink: /home/admin/har-system-edge-app-v0.2/resources
+[2026-01-29 17:11:57] [DEBUG]   Target:  /usr/local/hailo/resources
+[2026-01-29 17:11:57] [SUCCESS] Created symlink: /home/admin/har-system-edge-app-v0.2/resources -> /usr/local/hailo/resources
+[2026-01-29 17:11:57] [INFO] Continue running Post-Installation steps...
+[2026-01-29 17:11:57] [DEBUG] Executing as admin: bash -c 
+        export PYTHONUNBUFFERED=1 &&         source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' &&         cd '/home/admin/har-system-edge-app-v0.2' &&         stdbuf -oL -eL hailo-post-install --group 'default' 2>&1
+    
+[2026-01-29 17:11:57] [DEBUG] Running as user admin: bash -c 
+        export PYTHONUNBUFFERED=1 &&         source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' &&         cd '/home/admin/har-system-edge-app-v0.2' &&         stdbuf -oL -eL hailo-post-install --group 'default' 2>&1
+    
+[2026-01-29 17:11:57] [DEBUG]   🔧 Setting up environment configuration...
+[2026-01-29 17:11:58] [DEBUG]   ✅ Persisted environment variables to /usr/local/hailo/resources/.env
+[2026-01-29 17:11:58] [DEBUG]   
+[2026-01-29 17:11:58] [DEBUG]   📋 Environment Configuration Summary:
+[2026-01-29 17:11:58] [DEBUG]   ──────────────────────────────────────────────────
+[2026-01-29 17:11:58] [DEBUG]     host_arch: rpi
+[2026-01-29 17:11:58] [DEBUG]     hailo_arch: hailo8
+[2026-01-29 17:11:58] [DEBUG]     hailort_version: 4.23.0
+[2026-01-29 17:11:58] [DEBUG]     tappas_version: 5.1.0
+[2026-01-29 17:11:58] [DEBUG]     tappas_postproc_path: /usr/lib/aarch64-linux-gnu/hailo/tappas/post_processes
+[2026-01-29 17:11:58] [DEBUG]     model_zoo_version: v2.17.0
+[2026-01-29 17:11:58] [DEBUG]     resources_path: resources
+[2026-01-29 17:11:58] [DEBUG]     resources_root_path: /usr/local/hailo/resources
+[2026-01-29 17:11:58] [DEBUG]     virtual_env_name: venv_hailo_apps
+[2026-01-29 17:11:58] [DEBUG]     hailo_apps_path: /home/admin/har-system-edge-app-v0.2
+[2026-01-29 17:11:58] [DEBUG]     HAILO_LOG_LEVEL: INFO
+[2026-01-29 17:11:58] [DEBUG]   ──────────────────────────────────────────────────
+[2026-01-29 17:11:58] [DEBUG]   ⬇️  Downloading resources...
+[2026-01-29 17:11:58] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/fastvit_sa12.hef
+[2026-01-29 17:11:58] [DEBUG]     Status: 200
+[2026-01-29 17:11:58] [DEBUG]     Size: 10811963 bytes
+[2026-01-29 17:11:58] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/fcn8_resnet_v1_18.hef
+[2026-01-29 17:11:58] [DEBUG]     Status: 200
+[2026-01-29 17:11:58] [DEBUG]     Size: 10098336 bytes
+[2026-01-29 17:11:58] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov8m.hef
+[2026-01-29 17:11:58] [DEBUG]     Status: 200
+[2026-01-29 17:11:58] [DEBUG]     Size: 31157775 bytes
+[2026-01-29 17:11:59] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov8m.hef
+[2026-01-29 17:11:59] [DEBUG]     Status: 200
+[2026-01-29 17:11:59] [DEBUG]     Size: 31157775 bytes
+[2026-01-29 17:11:59] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov6n.hef
+[2026-01-29 17:11:59] [DEBUG]     Status: 200
+[2026-01-29 17:11:59] [DEBUG]     Size: 5771324 bytes
+[2026-01-29 17:11:59] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/scrfd_10g.hef
+[2026-01-29 17:11:59] [DEBUG]     Status: 200
+[2026-01-29 17:11:59] [DEBUG]     Size: 7206012 bytes
+[2026-01-29 17:11:59] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/arcface_mobilefacenet.hef
+[2026-01-29 17:11:59] [DEBUG]     Status: 200
+[2026-01-29 17:11:59] [DEBUG]     Size: 4099699 bytes
+[2026-01-29 17:12:00] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov5m_seg.hef
+[2026-01-29 17:12:00] [DEBUG]     Status: 200
+[2026-01-29 17:12:00] [DEBUG]     Size: 28123959 bytes
+[2026-01-29 17:12:00] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov8m_pose.hef
+[2026-01-29 17:12:00] [DEBUG]     Status: 200
+[2026-01-29 17:12:00] [DEBUG]     Size: 30754917 bytes
+[2026-01-29 17:12:00] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/scdepthv3.hef
+[2026-01-29 17:12:00] [DEBUG]     Status: 200
+[2026-01-29 17:12:00] [DEBUG]     Size: 13595791 bytes
+[2026-01-29 17:12:00] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/scdepthv3.hef
+[2026-01-29 17:12:00] [DEBUG]     Status: 200
+[2026-01-29 17:12:00] [DEBUG]     Size: 13595791 bytes
+[2026-01-29 17:12:00] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/stereonet.hef
+[2026-01-29 17:12:00] [DEBUG]     Status: 200
+[2026-01-29 17:12:00] [DEBUG]     Size: 43452897 bytes
+[2026-01-29 17:12:01] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov8m_seg.hef
+[2026-01-29 17:12:01] [DEBUG]     Status: 200
+[2026-01-29 17:12:01] [DEBUG]     Size: 32930114 bytes
+[2026-01-29 17:12:01] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/hailo_yolov8n_4_classes_vga.hef
+[2026-01-29 17:12:01] [DEBUG]     Status: 200
+[2026-01-29 17:12:01] [DEBUG]     Size: 3999051 bytes
+[2026-01-29 17:12:01] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/ocr_det.hef
+[2026-01-29 17:12:01] [DEBUG]     Status: 200
+[2026-01-29 17:12:01] [DEBUG]     Size: 5486955 bytes
+[2026-01-29 17:12:01] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/ocr.hef
+[2026-01-29 17:12:01] [DEBUG]     Status: 200
+[2026-01-29 17:12:01] [DEBUG]     Size: 7481255 bytes
+[2026-01-29 17:12:02] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/ufld_v2_tu.hef
+[2026-01-29 17:12:02] [DEBUG]     Status: 200
+[2026-01-29 17:12:02] [DEBUG]     Size: 70147610 bytes
+[2026-01-29 17:12:02] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/yolo11s_obb.hef
+[2026-01-29 17:12:02] [DEBUG]     Status: 200
+[2026-01-29 17:12:02] [DEBUG]     Size: 19568594 bytes
+[2026-01-29 17:12:02] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/real_esrgan_x2.hef
+[2026-01-29 17:12:02] [DEBUG]     Status: 200
+[2026-01-29 17:12:02] [DEBUG]     Size: 70680165 bytes
+[2026-01-29 17:12:02] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/scrfd_10g.hef
+[2026-01-29 17:12:02] [DEBUG]     Status: 200
+[2026-01-29 17:12:02] [DEBUG]     Size: 7206012 bytes
+[2026-01-29 17:12:03] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/arcface_mobilefacenet.hef
+[2026-01-29 17:12:03] [DEBUG]     Status: 200
+[2026-01-29 17:12:03] [DEBUG]     Size: 4099699 bytes
+[2026-01-29 17:12:03] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/yolov8m.hef
+[2026-01-29 17:12:03] [DEBUG]     Status: 200
+[2026-01-29 17:12:03] [DEBUG]     Size: 31157775 bytes
+[2026-01-29 17:12:03] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/clip_vit_b_32_image_encoder.hef
+[2026-01-29 17:12:03] [DEBUG]     Status: 200
+[2026-01-29 17:12:03] [DEBUG]     Size: 96902243 bytes
+[2026-01-29 17:12:03] [DEBUG]   ✓ URL valid: https://hailo-csdata.s3.eu-west-2.amazonaws.com/resources/hefs/h8/hailo_yolov8n_4_classes_vga.hef
+[2026-01-29 17:12:03] [DEBUG]     Status: 200
+[2026-01-29 17:12:03] [DEBUG]     Size: 3999051 bytes
+[2026-01-29 17:12:03] [DEBUG]   ✓ URL valid: https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/Compiled/v2.17.0/hailo8/clip_vit_b_32_text_encoder.hef
+[2026-01-29 17:12:03] [DEBUG]     Status: 200
+[2026-01-29 17:12:03] [DEBUG]     Size: 88112638 bytes
+[2026-01-29 17:14:04] [DEBUG]   ✅ Resources downloaded to resources
+[2026-01-29 17:14:04] [DEBUG]   ⚙️  Compiling C++ post-process modules...
+[2026-01-29 17:14:04] [DEBUG]   Configuring project with Meson...
+[2026-01-29 17:17:59] [DEBUG]   The Meson build system
+[2026-01-29 17:17:59] [DEBUG]   Version: 1.7.0
+[2026-01-29 17:17:59] [DEBUG]   Source dir: /home/admin/har-system-edge-app-v0.2/hailo_apps/postprocess
+[2026-01-29 17:17:59] [DEBUG]   Build dir: /home/admin/har-system-edge-app-v0.2/hailo_apps/postprocess/build.release
+[2026-01-29 17:17:59] [DEBUG]   Build type: native build
+[2026-01-29 17:17:59] [DEBUG]   Project name: hailo-apps
+[2026-01-29 17:17:59] [DEBUG]   Project version: 25-12
+[2026-01-29 17:17:59] [DEBUG]   C compiler for the host machine: cc (gcc 14.2.0 "cc (Debian 14.2.0-19) 14.2.0")
+[2026-01-29 17:17:59] [DEBUG]   C linker for the host machine: cc ld.bfd 2.44
+[2026-01-29 17:17:59] [DEBUG]   C++ compiler for the host machine: c++ (gcc 14.2.0 "c++ (Debian 14.2.0-19) 14.2.0")
+[2026-01-29 17:17:59] [DEBUG]   C++ linker for the host machine: c++ ld.bfd 2.44
+[2026-01-29 17:18:00] [DEBUG]   Host machine cpu family: aarch64
+[2026-01-29 17:18:00] [DEBUG]   Host machine cpu: aarch64
+[2026-01-29 17:18:00] [DEBUG]   Found pkg-config: YES (/usr/bin/pkg-config) 1.8.1
+[2026-01-29 17:18:00] [DEBUG]   Run-time dependency hailo-tappas-core found: YES 5.1.0
+[2026-01-29 17:18:00] [DEBUG]   Run-time dependency zlib found: YES 1.3.1
+[2026-01-29 17:18:00] [DEBUG]   Run-time dependency opencv4 found: YES 4.10.0
+[2026-01-29 17:18:00] [DEBUG]   Message: Found hailo-tappas-core version: 5.1.0
+[2026-01-29 17:18:00] [DEBUG]   Message: ⚠️  libhailo_opencv_utils.so not found, filtering it out from linker command
+[2026-01-29 17:18:00] [DEBUG]   Message: Using dynamic libraries for tappas-core 5.1.0
+[2026-01-29 17:18:00] [DEBUG]   Build targets in project: 15
+[2026-01-29 17:18:00] [DEBUG]   
+[2026-01-29 17:18:00] [DEBUG]   hailo-apps 25-12
+[2026-01-29 17:18:00] [DEBUG]   
+[2026-01-29 17:18:00] [DEBUG]     User defined options
+[2026-01-29 17:18:00] [DEBUG]       buildtype: release
+[2026-01-29 17:18:00] [DEBUG]   
+[2026-01-29 17:18:00] [DEBUG]   Found ninja-1.12.1 at /usr/bin/ninja
+[2026-01-29 17:18:00] [DEBUG]   Generating targets:   0%|          | 0/15 eta ?Generating targets:  33%|███▎      | 5/15 eta 00:00                                                   Writing build.ninja:   0%|          | 0/69 eta ?                                                Building project with Ninja...
+[2026-01-29 17:18:03] [DEBUG]   [1/30] Compiling C++ object cpp/libremove_labels.so.p/remove_labels.cpp.o
+[2026-01-29 17:18:03] [DEBUG]   In file included from ../cpp/remove_labels.hpp:7,
+[2026-01-29 17:18:03] [DEBUG]                    from ../cpp/remove_labels.cpp:8:
+[2026-01-29 17:18:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:03] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:03] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:12] [DEBUG]   [2/30] Compiling C++ object cpp/libdepth_postprocess.so.p/depth_estimation.cpp.o
+[2026-01-29 17:18:12] [DEBUG]   In file included from ../cpp/depth_estimation.hpp:8,
+[2026-01-29 17:18:12] [DEBUG]                    from ../cpp/depth_estimation.cpp:5:
+[2026-01-29 17:18:12] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:12] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:12] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:12] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:12] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:19] [DEBUG]   [3/30] Compiling C++ object cpp/libvms_face_align.so.p/face_align.cpp.o
+[2026-01-29 17:18:19] [DEBUG]   In file included from ../cpp/face_align.cpp:10:
+[2026-01-29 17:18:19] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:19] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:19] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:19] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:19] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:24] [DEBUG]   [4/30] Compiling C++ object cpp/libyolo_hailortpp_postprocess.so.p/yolo_hailortpp.cpp.o
+[2026-01-29 17:18:24] [DEBUG]   In file included from /usr/include/hailo/tappas/common/nms.hpp:8,
+[2026-01-29 17:18:24] [DEBUG]                    from ../cpp/hailo_nms_decode.hpp:14,
+[2026-01-29 17:18:24] [DEBUG]                    from ../cpp/yolo_hailortpp.cpp:12:
+[2026-01-29 17:18:24] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:24] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:24] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:24] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:24] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:27] [DEBUG]   [5/30] Compiling C++ object cpp/libyolov8pose_postprocess.so.p/yolov8pose_postprocess.cpp.o
+[2026-01-29 17:18:27] [DEBUG]   In file included from ../cpp/yolov8pose_postprocess.hpp:7,
+[2026-01-29 17:18:27] [DEBUG]                    from ../cpp/yolov8pose_postprocess.cpp:14:
+[2026-01-29 17:18:27] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:27] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:27] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:27] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:27] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:36] [DEBUG]   [6/30] Compiling C++ object cpp/libyolov5seg_postprocess.so.p/yolov5seg.cpp.o
+[2026-01-29 17:18:36] [DEBUG]   In file included from ../cpp/yolov5seg.cpp:4:
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:36] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:36] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:36] [DEBUG]   [7/30] Compiling C++ object cpp/libvms_croppers.so.p/vms_croppers.cpp.o
+[2026-01-29 17:18:36] [DEBUG]   In file included from ../cpp/vms_croppers.hpp:9,
+[2026-01-29 17:18:36] [DEBUG]                    from ../cpp/vms_croppers.cpp:8:
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:36] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:36] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:36] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:39] [DEBUG]   [8/30] Compiling C++ object cpp/libface_recognition_post.so.p/arcface.cpp.o
+[2026-01-29 17:18:39] [DEBUG]   In file included from ../cpp/arcface.hpp:7,
+[2026-01-29 17:18:39] [DEBUG]                    from ../cpp/arcface.cpp:8:
+[2026-01-29 17:18:39] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:39] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:39] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:39] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:39] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:43] [DEBUG]   [9/30] Compiling C++ object cpp/liball_detections_cropper_postprocess.so.p/all_detections_cropper.cpp.o
+[2026-01-29 17:18:43] [DEBUG]   In file included from ../cpp/all_detections_cropper.hpp:8,
+[2026-01-29 17:18:43] [DEBUG]                    from ../cpp/all_detections_cropper.cpp:8:
+[2026-01-29 17:18:43] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:43] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:43] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:43] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:43] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:48] [DEBUG]   [10/30] Compiling C++ object cpp/librepvgg_reid_postprocess.so.p/repvgg_reid.cpp.o
+[2026-01-29 17:18:48] [DEBUG]   In file included from ../cpp/repvgg_reid.hpp:7,
+[2026-01-29 17:18:48] [DEBUG]                    from ../cpp/repvgg_reid.cpp:9:
+[2026-01-29 17:18:48] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:48] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:48] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:48] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:48] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:50] [DEBUG]   [11/30] Compiling C++ object cpp/libmobilenet_ssd_postprocess.so.p/mobilenet_ssd.cpp.o
+[2026-01-29 17:18:50] [DEBUG]   In file included from ../cpp/mobilenet_ssd.hpp:7,
+[2026-01-29 17:18:50] [DEBUG]                    from ../cpp/mobilenet_ssd.cpp:7:
+[2026-01-29 17:18:50] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:50] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:50] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:50] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:50] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:55] [DEBUG]   [12/30] Compiling C++ object cpp/libclip_croppers_postprocess.so.p/clip_croppers.cpp.o
+[2026-01-29 17:18:55] [DEBUG]   In file included from ../cpp/clip_croppers.hpp:8,
+[2026-01-29 17:18:55] [DEBUG]                    from ../cpp/clip_croppers.cpp:13:
+[2026-01-29 17:18:55] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:55] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:55] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:55] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:55] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:56] [DEBUG]   [13/30] Compiling C++ object cpp/libclip_postprocess.so.p/clip.cpp.o
+[2026-01-29 17:18:56] [DEBUG]   In file included from ../cpp/clip.hpp:7,
+[2026-01-29 17:18:56] [DEBUG]                    from ../cpp/clip.cpp:8:
+[2026-01-29 17:18:56] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:18:56] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:18:56] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:18:56] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:18:56] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:18:57] [DEBUG]   [14/30] Linking target cpp/libyolo_hailortpp_postprocess.so
+[2026-01-29 17:18:58] [DEBUG]   [15/30] Linking target cpp/libyolov8pose_postprocess.so
+[2026-01-29 17:18:59] [DEBUG]   [16/30] Linking target cpp/libremove_labels.so
+[2026-01-29 17:18:59] [DEBUG]   [17/30] Linking target cpp/libyolov5seg_postprocess.so
+[2026-01-29 17:19:00] [DEBUG]   [18/30] Linking target cpp/libvms_face_align.so
+[2026-01-29 17:19:00] [DEBUG]   [19/30] Linking target cpp/libface_recognition_post.so
+[2026-01-29 17:19:00] [DEBUG]   [20/30] Linking target cpp/libdepth_postprocess.so
+[2026-01-29 17:19:02] [DEBUG]   [21/30] Linking target cpp/librepvgg_reid_postprocess.so
+[2026-01-29 17:19:03] [DEBUG]   [22/30] Compiling C++ object cpp/libscrfd.so.p/scrfd.cpp.o
+[2026-01-29 17:19:03] [DEBUG]   In file included from /usr/include/hailo/tappas/common/nms.hpp:8,
+[2026-01-29 17:19:03] [DEBUG]                    from ../cpp/scrfd.cpp:14:
+[2026-01-29 17:19:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:19:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:19:03] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:19:03] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:19:03] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:19:03] [DEBUG]   In file included from /usr/include/c++/14/algorithm:60,
+[2026-01-29 17:19:03] [DEBUG]                    from ../cpp/scrfd.cpp:5:
+[2026-01-29 17:19:03] [DEBUG]   In static member function ‘static _Up* std::__copy_move<_IsMove, true, std::random_access_iterator_tag>::__copy_m(_Tp*, _Tp*, _Up*) [with _Tp = const long unsigned int; _Up = long unsigned int; bool _IsMove = false]’,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘_OI std::__copy_move_a2(_II, _II, _OI) [with bool _IsMove = false; _II = const long unsigned int*; _OI = long unsigned int*]’ at /usr/include/c++/14/bits/stl_algobase.h:521:30,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘_OI std::__copy_move_a1(_II, _II, _OI) [with bool _IsMove = false; _II = const long unsigned int*; _OI = long unsigned int*]’ at /usr/include/c++/14/bits/stl_algobase.h:548:42,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘_OI std::__copy_move_a(_II, _II, _OI) [with bool _IsMove = false; _II = const long unsigned int*; _OI = long unsigned int*]’ at /usr/include/c++/14/bits/stl_algobase.h:555:31,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘_OI std::copy(_II, _II, _OI) [with _II = const long unsigned int*; _OI = long unsigned int*]’ at /usr/include/c++/14/bits/stl_algobase.h:651:7,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘bool xt::xfunction<F, CT>::broadcast_shape(S&, bool) const [with S = std::array<long unsigned int, 1>; F = xt::detail::divides; CT = {xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&>}]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xfunction.hpp:663:22,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘bool xt::xfunction<F, CT>::broadcast_shape(S&, bool) const [with S = std::array<long unsigned int, 1>; F = xt::detail::divides; CT = {xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&>}]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xfunction.hpp:659:17,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘xt::xexpression_assigner<xt::xtensor_expression_tag>::resize<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>, xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >(xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>&, const xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >&)::<lambda(auto:67)> [with auto:67 = xtl::identity]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:522:60,
+[2026-01-29 17:19:03] [DEBUG]       inlined from ‘decltype(auto) xtl::mpl::static_if(std::false_type, const TF&, const FF&) [with TF = xt::xexpression_assigner<xt::xtensor_expression_tag>::resize<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>, xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >(xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>&, const xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >&)::<lambda(auto:66)>; FF = xt::xexpression_assigner<xt::xtensor_expression_tag>::resize<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>, xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >(xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>&, const xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >&)::<lambda(auto:67)>]’ at /usr/include/hailo/tappas/sources/xtl/include/xtl/xmeta_utils.hpp:597:22,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘decltype(auto) xtl::mpl::static_if(const TF&, const FF&) [with bool cond = false; TF = xt::xexpression_assigner<xt::xtensor_expression_tag>::resize<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>, xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >(xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>&, const xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >&)::<lambda(auto:66)>; FF = xt::xexpression_assigner<xt::xtensor_expression_tag>::resize<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>, xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >(xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>&, const xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >&)::<lambda(auto:67)>]’ at /usr/include/hailo/tappas/sources/xtl/include/xtl/xmeta_utils.hpp:603:29,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘static bool xt::xexpression_assigner<Tag>::resize(E1&, const xt::xfunction<F, CT ...>&) [with E1 = xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>; F = xt::detail::divides; CT = {xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&>}; Tag = xt::xtensor_expression_tag]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:506:102,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘static void xt::xexpression_assigner<Tag>::assign_xexpression(E1&, const E2&) [with E1 = xt::xexpression<xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag> >; E2 = xt::xexpression<xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> > >; Tag = xt::xtensor_expression_tag]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:413:40,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::assign_xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>, xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >(xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag> >&, const xexpression<xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >&)::<lambda(auto:65)> [with auto:65 = xtl::identity]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:205:58,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘decltype(auto) xtl::mpl::static_if(std::false_type, const TF&, const FF&) [with TF = xt::assign_xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>, xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >(xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag> >&, const xexpression<xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >&)::<lambda(auto:64)>; FF = xt::assign_xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>, xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >(xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag> >&, const xexpression<xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >&)::<lambda(auto:65)>]’ at /usr/include/hailo/tappas/sources/xtl/include/xtl/xmeta_utils.hpp:597:22,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘decltype(auto) xtl::mpl::static_if(const TF&, const FF&) [with bool cond = false; TF = xt::assign_xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>, xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >(xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag> >&, const xexpression<xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >&)::<lambda(auto:64)>; FF = xt::assign_xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>, xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >(xexpression<xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag> >&, const xexpression<xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> > >&)::<lambda(auto:65)>]’ at /usr/include/hailo/tappas/sources/xtl/include/xtl/xmeta_utils.hpp:603:29,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘void xt::assign_xexpression(xexpression<D>&, const xexpression<E2>&) [with E1 = xtensor_container<uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xtensor_expression_tag>; E2 = xfunction<detail::divides, xview<xstrided_view<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, detail::flat_adaptor_getter<xarray_container<uvector<float, std::allocator<float> >, xt::layout_type::row_major, svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xtensor_expression_tag>&, xt::layout_type::row_major> >&, xall<long unsigned int>, const long int>, xscalar<const int&> >]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:199:58,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::xcontainer_semantic<D>::derived_type& xt::xcontainer_semantic<D>::assign_xexpression(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; D = xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xsemantic.hpp:623:31,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::xsemantic_base<D>::derived_type& xt::xsemantic_base<D>::assign(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; D = xt::xtensor_container<xt::uvector<float, std::allocator<float> >, 1, xt::layout_type::row_major, xt::xtensor_expression_tag>]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xsemantic.hpp:489:55,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::xtensor_container<EC, N, L, Tag>::xtensor_container(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; EC = xt::uvector<float, std::allocator<float> >; long unsigned int N = 1; xt::layout_type L = xt::layout_type::row_major; Tag = xt::xtensor_expression_tag]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xtensor.hpp:550:30,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::xsemantic_base<D>::derived_type& xt::xsemantic_base<D>::operator=(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; D = xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xsemantic.hpp:600:24,
+[2026-01-29 17:19:04] [DEBUG]       inlined from ‘xt::xview_semantic<D>::derived_type& xt::xview_semantic<D>::operator=(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; D = xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>]’ at /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xsemantic.hpp:750:33:
+[2026-01-29 17:19:04] [DEBUG]   /usr/include/c++/14/bits/stl_algobase.h:452:30: warning: ‘void* __builtin_memcpy(void*, const void*, long unsigned int)’ forming offset 8 is out of the bounds [0, 8] of object ‘shape’ with type ‘index_type’ {aka ‘std::array<long unsigned int, 1>’} [-Warray-bounds=]
+[2026-01-29 17:19:04] [DEBUG]     452 |             __builtin_memmove(__result, __first, sizeof(_Tp) * _Num);
+[2026-01-29 17:19:04] [DEBUG]         |             ~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:19:04] [DEBUG]   In file included from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xsemantic.hpp:16,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xstrided_view.hpp:25,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xgenerator.hpp:27,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xbuilder.hpp:31,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xmanipulation.hpp:13,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xmath.hpp:28,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xcontainer.hpp:25,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xarray.hpp:20,
+[2026-01-29 17:19:04] [DEBUG]                    from /usr/include/hailo/tappas/common/math.hpp:7,
+[2026-01-29 17:19:04] [DEBUG]                    from ../cpp/scrfd.cpp:12:
+[2026-01-29 17:19:04] [DEBUG]   /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp: In function ‘xt::xview_semantic<D>::derived_type& xt::xview_semantic<D>::operator=(const xt::xexpression<E>&) [with E = xt::xfunction<xt::detail::divides, xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>, xt::xscalar<const int&> >; D = xt::xview<xt::xstrided_view<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, std::array<long unsigned int, 2>, xt::layout_type::row_major, xt::detail::flat_adaptor_getter<xt::xarray_container<xt::uvector<float, std::allocator<float> >, xt::layout_type::row_major, xt::svector<long unsigned int, 4, std::allocator<long unsigned int>, true>, xt::xtensor_expression_tag>&, xt::layout_type::row_major> >&, xt::xall<long unsigned int>, const long int>]’:
+[2026-01-29 17:19:04] [DEBUG]   /usr/include/hailo/tappas/sources/xtensor/include/xtensor/xassign.hpp:521:28: note: ‘shape’ declared here
+[2026-01-29 17:19:04] [DEBUG]     521 |                 index_type shape = uninitialized_shape<index_type>(size);
+[2026-01-29 17:19:04] [DEBUG]         |                            ^~~~~
+[2026-01-29 17:19:04] [DEBUG]   [23/30] Linking target cpp/libvms_croppers.so
+[2026-01-29 17:19:05] [DEBUG]   [24/30] Linking target cpp/libscrfd.so
+[2026-01-29 17:19:05] [DEBUG]   [25/30] Linking target cpp/liball_detections_cropper_postprocess.so
+[2026-01-29 17:19:06] [DEBUG]   [26/30] Linking target cpp/libclip_postprocess.so
+[2026-01-29 17:19:06] [DEBUG]   [27/30] Linking target cpp/libmobilenet_ssd_postprocess.so
+[2026-01-29 17:19:07] [DEBUG]   [28/30] Linking target cpp/libclip_croppers_postprocess.so
+[2026-01-29 17:19:08] [DEBUG]   [29/30] Compiling C++ object cpp/libocr_postprocess.so.p/ocr_postprocess.cpp.o
+[2026-01-29 17:19:08] [DEBUG]   In file included from ../cpp/ocr_postprocess.hpp:7,
+[2026-01-29 17:19:08] [DEBUG]                    from ../cpp/ocr_postprocess.cpp:1:
+[2026-01-29 17:19:08] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp: In function ‘void hailo_common::flatten_hailo_roi(HailoROIPtr, HailoROIPtr, hailo_object_t)’:
+[2026-01-29 17:19:08] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: warning: moving a temporary object prevents copy elision [-Wpessimizing-move]
+[2026-01-29 17:19:08] [DEBUG]     256 |                 sub_obj_roi->set_bbox(std::move(create_flattened_bbox(sub_obj_roi->get_bbox(), roi->get_bbox())));
+[2026-01-29 17:19:08] [DEBUG]         |                                       ~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[2026-01-29 17:19:08] [DEBUG]   /usr/include/hailo/tappas/hailo_common.hpp:256:48: note: remove ‘std::move’ call
+[2026-01-29 17:19:09] [DEBUG]   [30/30] Linking target cpp/libocr_postprocess.so
+[2026-01-29 17:19:09] [DEBUG]   Installing project...
+[2026-01-29 17:19:09] [DEBUG]   [0/1] Installing files
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libyolo_hailortpp_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libremove_labels.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libyolov8pose_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libyolov5seg_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libdepth_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libvms_face_align.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libscrfd.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libface_recognition_post.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libvms_croppers.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/librepvgg_reid_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/liball_detections_cropper_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libmobilenet_ssd_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libclip_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libclip_croppers_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Installing cpp/libocr_postprocess.so to /usr/local/hailo/resources/so
+[2026-01-29 17:19:09] [DEBUG]   Build completed successfully!
+[2026-01-29 17:19:09] [DEBUG]   ✅ C++ post-process modules compiled
+[2026-01-29 17:19:09] [DEBUG]   
+[2026-01-29 17:19:09] [DEBUG]   ✅ Hailo Infra Post-installation complete!
+[2026-01-29 17:19:09] [SUCCESS] Post-installation completed
+[2026-01-29 17:19:09] [DEBUG] Fixing final ownership...
+[2026-01-29 17:19:09] [DEBUG] Fixing ownership of /home/admin/har-system-edge-app-v0.2 to admin:admin
+[2026-01-29 17:19:09] [DEBUG] Executing as admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo_apps'
+[2026-01-29 17:19:09] [DEBUG] Running as user admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo_apps'
+[2026-01-29 17:19:09] [DEBUG] Executing as admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo_platform'
+[2026-01-29 17:19:09] [DEBUG] Running as user admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo_platform'
+[2026-01-29 17:19:09] [DEBUG] Executing as admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo'
+[2026-01-29 17:19:09] [DEBUG] Running as user admin: bash -c source '/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/bin/activate' && python3 -c 'import hailo'
