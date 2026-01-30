@@ -76,6 +76,42 @@ class TestHARPoseEstimationApp:
         assert video_sink == "autovideosink"
 
 
+class TestPrintFinalStats:
+    """Tests for _print_final_stats()."""
+
+    def test_print_final_stats_does_not_raise(self, har_app_module):
+        """_print_final_stats(user_data) should not raise when user_data has required attributes."""
+        user_data = MagicMock()
+        user_data.fps_tracker.get_average_fps.return_value = 30.0
+        user_data.get_count.return_value = 900
+        user_data.frame_events_count = 900
+        user_data.invalid_caps_count = 0
+        user_data.invalid_validate_count = 0
+        user_data.frames_with_persons = 850
+        user_data.frames_no_persons = 50
+        user_data.persons_total = 900
+        user_data.frames_with_landmarks = 840
+        user_data.frames_keypoints_len_not_17 = 0
+        har_app_module._print_final_stats(user_data)
+
+    def test_print_final_stats_calls_logger(self, har_app_module):
+        """_print_final_stats should call hailo_logger.info for Final Stats and Phase1 final."""
+        user_data = MagicMock()
+        user_data.fps_tracker.get_average_fps.return_value = 25.0
+        user_data.get_count.return_value = 500
+        user_data.frame_events_count = 500
+        user_data.invalid_caps_count = 0
+        user_data.invalid_validate_count = 0
+        user_data.frames_with_persons = 480
+        user_data.frames_no_persons = 20
+        user_data.persons_total = 500
+        user_data.frames_with_landmarks = 475
+        user_data.frames_keypoints_len_not_17 = 0
+        with patch.object(har_app_module.hailo_logger, "info") as mock_info:
+            har_app_module._print_final_stats(user_data)
+        assert mock_info.call_count >= 2
+
+
 class TestMainFunction:
     """Tests for main() entry point."""
 

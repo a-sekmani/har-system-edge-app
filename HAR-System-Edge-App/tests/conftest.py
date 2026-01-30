@@ -47,3 +47,37 @@ def get_har_parser_func(har_app_module):
 def simple_callback_func(har_app_module):
     """simple_callback function from har_pose_app."""
     return har_app_module.simple_callback
+
+
+# Phase 1: frame_event module (no hailo_apps required for model/validation tests)
+@pytest.fixture
+def frame_event_module():
+    """Import frame_event module from src."""
+    import sys
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parents[1]
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from src import frame_event
+    return frame_event
+
+
+@pytest.fixture
+def PersonPose_class(frame_event_module):
+    return frame_event_module.PersonPose
+
+
+@pytest.fixture
+def FrameEvent_class(frame_event_module):
+    return frame_event_module.FrameEvent
+
+
+@pytest.fixture
+def validate_frame_event_func(frame_event_module):
+    return frame_event_module.validate_frame_event
+
+
+@pytest.fixture
+def pose_extraction_callback_func(har_app_module):
+    """pose_extraction_callback from har_pose_app."""
+    return har_app_module.pose_extraction_callback
