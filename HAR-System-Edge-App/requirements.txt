@@ -1,0 +1,13 @@
+# HAR-System-Edge-App Requirements
+#
+# This project depends on hailo-apps installed in the parent directory.
+# No extra dependencies are required if hailo-apps is installed correctly.
+
+# For unit tests
+pytest>=7.0.0
+
+# To install hailo-apps as a dependency:
+# hailo-apps>=25.12.0
+
+# Note: Activate the hailo-apps virtual environment before running
+# source ../setup_env.sh
