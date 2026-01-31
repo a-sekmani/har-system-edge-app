@@ -112,6 +112,45 @@ class TestPrintFinalStats:
         assert mock_info.call_count >= 2
 
 
+class TestPoseConfidenceFromDetection:
+    """Tests for _pose_confidence_from_detection (filter helper)."""
+
+    def test_returns_zero_when_no_landmarks(self, har_app_module):
+        """When detection has no landmarks, _pose_confidence_from_detection returns 0.0."""
+        det = MagicMock()
+        det.get_objects_typed = MagicMock(return_value=[])
+        assert har_app_module._pose_confidence_from_detection(det) == 0.0
+
+    def test_returns_average_confidence_when_landmarks_present(self, har_app_module):
+        """When landmarks have confidence values, returns their average (e.g. 0.8 and 0.4 -> 0.6)."""
+        try:
+            import hailo
+        except ImportError:
+            pytest.skip("hailo not available")
+        pt1 = MagicMock()
+        pt1.confidence = MagicMock(return_value=0.8)
+        pt2 = MagicMock()
+        pt2.confidence = MagicMock(return_value=0.4)
+        lm = MagicMock()
+        lm.get_points = MagicMock(return_value=[pt1, pt2])
+        det = MagicMock()
+        det.get_objects_typed = MagicMock(return_value=[lm])
+        # average of 0.8 and 0.4 = 0.6
+        assert har_app_module._pose_confidence_from_detection(det) == pytest.approx(0.6)
+
+    def test_returns_zero_when_empty_points(self, har_app_module):
+        """When landmarks exist but get_points() is empty, returns 0.0."""
+        try:
+            import hailo
+        except ImportError:
+            pytest.skip("hailo not available")
+        lm = MagicMock()
+        lm.get_points = MagicMock(return_value=[])
+        det = MagicMock()
+        det.get_objects_typed = MagicMock(return_value=[lm])
+        assert har_app_module._pose_confidence_from_detection(det) == 0.0
+
+
 class TestMainFunction:
     """Tests for main() entry point."""
 

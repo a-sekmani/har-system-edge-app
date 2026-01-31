@@ -65,3 +65,45 @@ class TestGetHarParser:
         parser = get_har_parser_func()
         args, _ = parser.parse_known_args([])
         assert getattr(args, "dump_frames", None) is None
+
+    def test_has_tracking_source_option(self, get_har_parser_func):
+        """Parser should have --tracking-source option (metadata|fallback)."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--tracking-source", "fallback"])
+        assert getattr(args, "tracking_source", None) == "fallback"
+
+    def test_has_max_missing_frames_option(self, get_har_parser_func):
+        """Parser should have --max-missing-frames option."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--max-missing-frames", "5"])
+        assert getattr(args, "max_missing_frames", None) == 5
+
+    def test_has_log_tracking_summary_flag(self, get_har_parser_func):
+        """Parser should have --log-tracking-summary option."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--log-tracking-summary"])
+        assert getattr(args, "log_tracking_summary", False) is True
+
+    def test_has_min_bbox_height_option(self, get_har_parser_func):
+        """Parser should have --min-bbox-height option (filter ghost detections)."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--min-bbox-height", "80"])
+        assert getattr(args, "min_bbox_height", None) == 80.0
+
+    def test_min_bbox_height_default_none(self, get_har_parser_func):
+        """Without --min-bbox-height, min_bbox_height should be None (no filter)."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args([])
+        assert getattr(args, "min_bbox_height", "missing") is None
+
+    def test_has_min_pose_confidence_option(self, get_har_parser_func):
+        """Parser should have --min-pose-confidence option (filter low-confidence detections)."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--min-pose-confidence", "0.3"])
+        assert getattr(args, "min_pose_confidence", None) == 0.3
+
+    def test_min_pose_confidence_default_none(self, get_har_parser_func):
+        """Without --min-pose-confidence, min_pose_confidence should be None (no filter)."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args([])
+        assert getattr(args, "min_pose_confidence", "missing") is None

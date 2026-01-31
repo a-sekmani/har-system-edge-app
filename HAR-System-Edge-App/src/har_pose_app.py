@@ -10,6 +10,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 # Ensure project root (parent of src) is on path for "from src.frame_event import ..."
 _SCRIPT_DIR = Path(__file__).resolve().parent
@@ -46,8 +47,35 @@ from hailo_apps.python.core.gstreamer.gstreamer_helper_pipelines import (
 
 hailo_logger = get_logger(__name__)
 import hailo
-from src.frame_event import FrameEvent, PersonPose, validate_frame_event
+from src.frame_event import FrameEvent, PersonPose, validate_frame_event, TRACK_ID_UNKNOWN
+from src.tracker import TrackingConfig, FallbackTracker, get_metadata_track_id
 # endregion imports
+
+
+def _pose_confidence_from_detection(detection: Any) -> float:
+    """Average keypoint confidence for detection (0 if no landmarks). Used for min_pose_confidence filter."""
+    try:
+        landmarks_list = detection.get_objects_typed(hailo.HAILO_LANDMARKS)
+        if not landmarks_list:
+            return 0.0
+        points_list = landmarks_list[0].get_points()
+        if not points_list:
+            return 0.0
+        total = 0.0
+        count = 0
+        for pt in points_list:
+            if hasattr(pt, "confidence") and callable(getattr(pt, "confidence")):
+                total += float(pt.confidence())
+                count += 1
+            elif hasattr(pt, "confidence") and not callable(getattr(pt, "confidence")):
+                total += float(pt.confidence)
+                count += 1
+            else:
+                total += 1.0
+                count += 1
+        return total / count if count else 0.0
+    except Exception:
+        return 0.0
 
 
 # -----------------------------------------------------------------------------------------------
@@ -73,6 +101,54 @@ def get_har_parser():
         default=None,
         metavar="path",
         help="Write FrameEvents to JSON file (each frame or every K-th).",
+    )
+    # Phase 2 tracking
+    parser.add_argument(
+        "--tracking-source",
+        type=str,
+        choices=["metadata", "fallback"],
+        default="metadata",
+        help="Track ID source: metadata (hailo) or fallback (IoU tracker).",
+    )
+    parser.add_argument(
+        "--max-missing-frames",
+        type=int,
+        default=15,
+        metavar="N",
+        help="Expire track after N frames without detection (fallback).",
+    )
+    parser.add_argument(
+        "--iou-threshold",
+        type=float,
+        default=0.3,
+        metavar="X",
+        help="IoU threshold for fallback tracker matching.",
+    )
+    parser.add_argument(
+        "--min-bbox-area",
+        type=float,
+        default=0.0,
+        metavar="A",
+        help="Filter detections with bbox area below this (pixels²).",
+    )
+    parser.add_argument(
+        "--min-bbox-height",
+        type=float,
+        default=None,
+        metavar="H",
+        help="Filter detections with bbox height below H pixels (reduces ghost tracks).",
+    )
+    parser.add_argument(
+        "--min-pose-confidence",
+        type=float,
+        default=None,
+        metavar="C",
+        help="Filter detections with avg keypoint confidence below C (0-1).",
+    )
+    parser.add_argument(
+        "--log-tracking-summary",
+        action="store_true",
+        help="Log Phase 2 tracking summary periodically.",
     )
     return parser
 
@@ -190,7 +266,7 @@ class FPSTracker:
 # User callback class with FPS tracking
 # -----------------------------------------------------------------------------------------------
 class HARUserData(app_callback_class):
-    """User data class with FPS tracking and Phase 1 pose extraction state."""
+    """User data class with FPS tracking, Phase 1 pose extraction, and Phase 2 tracking state."""
     
     def __init__(self, log_pose_summary=False, dump_frames_path=None, dump_frames_every_k=1):
         super().__init__()
@@ -215,6 +291,25 @@ class HARUserData(app_callback_class):
         self.last_pose_summary_time = time.time()
         self.pose_summary_interval = 5.0
         self._dump_file_handle = None
+        # Phase 2 tracking (set from main after parsing)
+        self.tracking_config = None  # TrackingConfig
+        self.fallback_tracker = None  # FallbackTracker when tracking_source == "fallback"
+        self.unique_track_ids = set()  # distinct track ids ever seen
+        self.new_tracks_created = 0
+        self.tracks_ended = 0
+        self.id_switch_suspected = 0
+        self.multi_person_frames = 0
+        self.log_tracking_summary = False
+        self.last_tracking_summary_time = time.time()
+        self.tracking_summary_interval = 5.0
+        self._debug_created_logged = 0
+        self._debug_ended_logged = 0
+        self._debug_switch_logged = 0
+        self._prev_frame_track_ids = []  # for id_switch heuristic
+        self._prev_frame_bboxes = []  # for id_switch heuristic
+        # Detection filter counters (before vs after filter)
+        self.detections_total = 0  # raw person detections from ROI (before filter)
+        self.filtered_detections_total = 0  # detections excluded by min_bbox_area / min_bbox_height / min_pose_confidence
 
 
 # -----------------------------------------------------------------------------------------------
@@ -246,18 +341,18 @@ def simple_callback(element, buffer, user_data):
 
 
 # -----------------------------------------------------------------------------------------------
-# Pose extraction callback (Phase 1): FPS + FrameEvent build + validation
+# Pose extraction callback (Phase 1 + Phase 2): FPS + FrameEvent + track_id + validation
 # -----------------------------------------------------------------------------------------------
 def pose_extraction_callback(element, buffer, user_data):
-    """Callback: FPS tracking + extract pose per frame, build FrameEvent, validate; skip invalid."""
+    """Callback: FPS + extract pose, resolve track_id (metadata or fallback), build FrameEvent, validate."""
     if buffer is None:
         return
-    
+
     user_data.fps_tracker.update()
     current_time = time.time()
     timestamp_ms = current_time * 1000.0
     frame_number = user_data.get_count()
-    
+
     pad = element.get_static_pad("src")
     format_caps, width, height = get_caps_from_pad(pad)
     if width is None or height is None or width <= 0 or height <= 0:
@@ -265,23 +360,133 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.invalid_frame_count += 1
         _log_fps_if_due(user_data, current_time)
         return
-    
+
     width, height = int(width), int(height)
     roi = hailo.get_roi_from_buffer(buffer)
     detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
-    persons = []
+    cfg = getattr(user_data, "tracking_config", None)
+    min_bbox_area = getattr(cfg, "min_bbox_area", 0.0) if cfg else 0.0
+    min_bbox_height = getattr(cfg, "min_bbox_height", None) if cfg else None
+    min_pose_conf = getattr(cfg, "min_pose_confidence", None) if cfg else None
+
+    # Build list of (detection, bbox_px) for person detections; apply filter to reduce false positives
+    dets_and_bboxes = []
     for det in detections:
         if det.get_label() != "person":
             continue
+        user_data.detections_total += 1
+        try:
+            bbox_norm = det.get_bbox()
+            xmin = max(0.0, min(1.0, bbox_norm.xmin()))
+            ymin = max(0.0, min(1.0, bbox_norm.ymin()))
+            w = max(0.0, min(1.0 - xmin, bbox_norm.width()))
+            h_norm = max(0.0, min(1.0 - ymin, bbox_norm.height()))
+            x1 = xmin * width
+            y1 = ymin * height
+            x2 = (xmin + w) * width
+            y2 = (ymin + h_norm) * height
+            bbox_px = [float(x1), float(y1), float(x2), float(y2)]
+            area_px = (x2 - x1) * (y2 - y1)
+            height_px = y2 - y1
+
+            # Filter: exclude small / low-confidence detections (reduces ghost tracks)
+            if area_px < min_bbox_area:
+                user_data.filtered_detections_total += 1
+                continue
+            if min_bbox_height is not None and height_px < min_bbox_height:
+                user_data.filtered_detections_total += 1
+                continue
+            if min_pose_conf is not None:
+                pose_conf = _pose_confidence_from_detection(det)
+                if pose_conf < min_pose_conf:
+                    user_data.filtered_detections_total += 1
+                    continue
+            dets_and_bboxes.append((det, bbox_px))
+        except Exception as e:
+            hailo_logger.debug("Skip detection bbox: %s", e)
+            continue
+
+    # Resolve track_id per detection (metadata or fallback)
+    cfg = getattr(user_data, "tracking_config", None)
+    track_ids = [TRACK_ID_UNKNOWN] * len(dets_and_bboxes)
+    new_n, end_n = 0, 0
+    if cfg and getattr(cfg, "tracking_enabled", True) and dets_and_bboxes:
+        bboxes = [bbox for _, bbox in dets_and_bboxes]
+        if getattr(cfg, "tracking_source", "metadata") == "metadata":
+            metadata_ids = []
+            need_fallback = False
+            for det, _ in dets_and_bboxes:
+                mid = get_metadata_track_id(det)
+                metadata_ids.append(mid)
+                if mid is None or mid <= 0:
+                    need_fallback = True
+            if need_fallback and user_data.fallback_tracker is not None:
+                fallback_ids, new_n, end_n = user_data.fallback_tracker.update(
+                    bboxes, frame_number, current_time
+                )
+                user_data.tracks_ended += end_n
+                for i in range(len(dets_and_bboxes)):
+                    track_ids[i] = metadata_ids[i] if (metadata_ids[i] is not None and metadata_ids[i] > 0) else fallback_ids[i]
+            else:
+                for i in range(len(dets_and_bboxes)):
+                    track_ids[i] = metadata_ids[i] if (metadata_ids[i] is not None and metadata_ids[i] > 0) else TRACK_ID_UNKNOWN
+            # Count first appearance of any track_id (metadata or fallback) as new_tracks_created
+            new_this_frame = 0
+            for tid in track_ids:
+                if tid != TRACK_ID_UNKNOWN:
+                    if tid not in user_data.unique_track_ids:
+                        new_this_frame += 1
+                        user_data.new_tracks_created += 1
+                    user_data.unique_track_ids.add(tid)
+        else:
+            # fallback source
+            if user_data.fallback_tracker is not None:
+                fallback_ids, new_n, end_n = user_data.fallback_tracker.update(
+                    bboxes, frame_number, current_time
+                )
+                track_ids = fallback_ids
+                user_data.tracks_ended += end_n
+            new_this_frame = 0
+            for tid in track_ids:
+                if tid != TRACK_ID_UNKNOWN:
+                    if tid not in user_data.unique_track_ids:
+                        new_this_frame += 1
+                        user_data.new_tracks_created += 1
+                    user_data.unique_track_ids.add(tid)
+
+        # Diagnostics: first N track created / ended
+        _log_tracking_diagnostics(user_data, new_this_frame, end_n, frame_number)
+
+        # Id-switch heuristic: same frame count, assignment flip or continuity but id change (simplified: two persons, ids swap)
+        if len(track_ids) >= 2 and hasattr(user_data, "_prev_frame_track_ids") and len(user_data._prev_frame_track_ids) >= 2:
+            # Check if current ids are permutation of previous (possible swap)
+            prev_set = set(user_data._prev_frame_track_ids)
+            curr_set = set(track_ids)
+            if prev_set == curr_set and user_data._prev_frame_track_ids != track_ids:
+                # Same two ids but different order -> possible swap (heuristic)
+                user_data.id_switch_suspected += 1
+                if getattr(user_data, "_debug_switch_logged", 0) < getattr(cfg, "debug_first_n_switches", 0):
+                    hailo_logger.info(
+                        "[id_switch suspected] frame=%s prev_ids=%s current_ids=%s prev_bboxes=%s current_bboxes=%s",
+                        frame_number, user_data._prev_frame_track_ids, track_ids,
+                        getattr(user_data, "_prev_frame_bboxes", []), bboxes,
+                    )
+                    user_data._debug_switch_logged = getattr(user_data, "_debug_switch_logged", 0) + 1
+        user_data._prev_frame_track_ids = list(track_ids)
+        user_data._prev_frame_bboxes = [list(b) for _, b in dets_and_bboxes]
+
+    # Build PersonPose list with track_id
+    persons = []
+    for (det, bbox_px), tid in zip(dets_and_bboxes, track_ids):
         try:
             pose = PersonPose.from_hailo_detection(
-                det, width, height, store_raw_sample=(len(persons) == 0)
+                det, width, height, store_raw_sample=(len(persons) == 0), track_id=tid
             )
             persons.append(pose)
         except Exception as e:
             hailo_logger.debug("Skip detection: %s", e)
             continue
-    
+
     event = FrameEvent(
         frame_number=frame_number,
         timestamp_ms=timestamp_ms,
@@ -292,25 +497,24 @@ def pose_extraction_callback(element, buffer, user_data):
     if not valid:
         user_data.invalid_validate_count += 1
         user_data.invalid_frame_count += 1
-        # Task A: print first 5 validation errors only once
         if not getattr(user_data, "_validation_errors_printed", False):
             user_data._validation_errors_printed = True
             for err in errors[:5]:
                 hailo_logger.info("[validation] %s", err)
-        # Task B: print raw sample for first invalid frame only
         if not getattr(user_data, "_first_invalid_sample_logged", False) and event.persons:
             user_data._first_invalid_sample_logged = True
             _log_first_invalid_sample(event, width, height)
         _log_fps_if_due(user_data, current_time)
         return
-    
+
     user_data.frame_events_count += 1
-    # Phase 1 acceptance counters
     if len(persons) > 0:
         user_data.frames_with_persons += 1
     else:
         user_data.frames_no_persons += 1
     user_data.persons_total += len(persons)
+    if len(persons) >= 2:
+        user_data.multi_person_frames += 1
     has_landmarks = any(
         any(len(kp) == 3 and kp[2] > 0 for kp in p.keypoints) for p in persons
     )
@@ -323,10 +527,49 @@ def pose_extraction_callback(element, buffer, user_data):
     ) >= getattr(user_data, "pose_summary_interval", 5.0):
         _log_pose_summary(user_data, event, current_time)
         user_data.last_pose_summary_time = current_time
+    if getattr(user_data, "log_tracking_summary", False) and (
+        current_time - getattr(user_data, "last_tracking_summary_time", 0)
+    ) >= getattr(user_data, "tracking_summary_interval", 5.0):
+        _log_tracking_summary(user_data, current_time)
+        user_data.last_tracking_summary_time = current_time
     if getattr(user_data, "dump_frames_path", None):
         _dump_frame_event(user_data, event)
     _log_fps_if_due(user_data, current_time)
     return
+
+
+def _log_tracking_diagnostics(user_data, new_n, end_n, frame_number):
+    """Log first N 'track created' and 'track ended' (config.debug_first_n_created/ended)."""
+    cfg = getattr(user_data, "tracking_config", None)
+    if not cfg:
+        return
+    if new_n > 0:
+        n_logged = getattr(user_data, "_debug_created_logged", 0)
+        max_log = getattr(cfg, "debug_first_n_created", 0)
+        if max_log > 0 and n_logged < max_log:
+            hailo_logger.info("[track created] frame=%s count=%s", frame_number, new_n)
+            user_data._debug_created_logged = n_logged + 1
+    if end_n > 0:
+        n_logged = getattr(user_data, "_debug_ended_logged", 0)
+        max_log = getattr(cfg, "debug_first_n_ended", 0)
+        if max_log > 0 and n_logged < max_log:
+            hailo_logger.info("[track ended] frame=%s count=%s", frame_number, end_n)
+            user_data._debug_ended_logged = n_logged + 1
+
+
+def _log_tracking_summary(user_data, current_time):
+    """Log Phase 2 tracking summary (unique_track_ids, new_tracks_created, etc.)."""
+    hailo_logger.info(
+        "Phase2 summary: unique_track_ids=%s, new_tracks_created=%s, tracks_ended=%s, "
+        "id_switch_suspected=%s, multi_person_frames=%s, detections_total=%s, filtered_detections_total=%s",
+        len(getattr(user_data, "unique_track_ids", set())),
+        getattr(user_data, "new_tracks_created", 0),
+        getattr(user_data, "tracks_ended", 0),
+        getattr(user_data, "id_switch_suspected", 0),
+        getattr(user_data, "multi_person_frames", 0),
+        getattr(user_data, "detections_total", 0),
+        getattr(user_data, "filtered_detections_total", 0),
+    )
 
 
 def _log_fps_if_due(user_data, current_time):
@@ -348,6 +591,17 @@ def _log_fps_if_due(user_data, current_time):
             getattr(user_data, "persons_total", 0),
             getattr(user_data, "frames_with_landmarks", 0),
             getattr(user_data, "frames_keypoints_len_not_17", 0),
+        )
+        hailo_logger.info(
+            "Phase2 summary: unique_track_ids=%s, new_tracks_created=%s, tracks_ended=%s, "
+            "id_switch_suspected=%s, multi_person_frames=%s, detections_total=%s, filtered_detections_total=%s",
+            len(getattr(user_data, "unique_track_ids", set())),
+            getattr(user_data, "new_tracks_created", 0),
+            getattr(user_data, "tracks_ended", 0),
+            getattr(user_data, "id_switch_suspected", 0),
+            getattr(user_data, "multi_person_frames", 0),
+            getattr(user_data, "detections_total", 0),
+            getattr(user_data, "filtered_detections_total", 0),
         )
         user_data.last_fps_log_time = current_time
 
@@ -399,7 +653,7 @@ def _dump_frame_event(user_data, event):
 
 
 def _print_final_stats(user_data):
-    """Print final FPS and Phase1 counters (called on exit; base class uses SIGINT so run() returns without raising)."""
+    """Print final FPS, Phase1 and Phase2 counters (called on exit)."""
     try:
         final_fps = user_data.fps_tracker.get_average_fps()
         final_count = user_data.get_count()
@@ -419,6 +673,17 @@ def _print_final_stats(user_data):
             user_data.frames_with_landmarks,
             user_data.frames_keypoints_len_not_17,
         )
+        hailo_logger.info(
+            "Phase2 final: unique_track_ids=%s, new_tracks_created=%s, tracks_ended=%s, "
+            "id_switch_suspected=%s, multi_person_frames=%s, detections_total=%s, filtered_detections_total=%s",
+            len(getattr(user_data, "unique_track_ids", set())),
+            getattr(user_data, "new_tracks_created", 0),
+            getattr(user_data, "tracks_ended", 0),
+            getattr(user_data, "id_switch_suspected", 0),
+            getattr(user_data, "multi_person_frames", 0),
+            getattr(user_data, "detections_total", 0),
+            getattr(user_data, "filtered_detections_total", 0),
+        )
     except Exception as e:
         hailo_logger.warning("Could not print final stats: %s", e)
 
@@ -429,24 +694,38 @@ def _print_final_stats(user_data):
 def main():
     """Application main entry point."""
     hailo_logger.info("Starting HAR Pose Estimation App...")
-    
+
     parser = get_har_parser()
     user_data = HARUserData()
     app = HARPoseEstimationApp(pose_extraction_callback, user_data, parser)
-    # Sync Phase 1 options from app (parser is parsed in app init)
-    user_data.log_pose_summary = getattr(app.options_menu, "log_pose_summary", False)
-    user_data.dump_frames_path = getattr(app.options_menu, "dump_frames", None)
-    
+    opts = app.options_menu
+    user_data.log_pose_summary = getattr(opts, "log_pose_summary", False)
+    user_data.dump_frames_path = getattr(opts, "dump_frames", None)
+    # Phase 2 tracking config and fallback tracker
+    user_data.tracking_config = TrackingConfig(
+        tracking_enabled=True,
+        tracking_source=getattr(opts, "tracking_source", "metadata"),
+        max_missing_frames=getattr(opts, "max_missing_frames", 15),
+        iou_match_threshold=getattr(opts, "iou_threshold", 0.3),
+        max_track_age_seconds=None,
+        min_bbox_area=getattr(opts, "min_bbox_area", 0.0),
+        min_bbox_height=getattr(opts, "min_bbox_height", None),
+        min_pose_confidence=getattr(opts, "min_pose_confidence", None),
+        debug_first_n_switches=5,
+        debug_first_n_created=5,
+        debug_first_n_ended=5,
+    )
+    user_data.fallback_tracker = FallbackTracker(user_data.tracking_config)
+    user_data.log_tracking_summary = getattr(opts, "log_tracking_summary", False)
+
     hailo_logger.info("Running pipeline...")
     hailo_logger.info("Press Ctrl+C to stop")
-    
+
     try:
         app.run()
     except KeyboardInterrupt:
         hailo_logger.info("Stopping application...")
     finally:
-        # Base class handles SIGINT and quits the loop without raising; run() returns.
-        # Always print final stats when the app exits (Ctrl+C or normal).
         _print_final_stats(user_data)
 
 

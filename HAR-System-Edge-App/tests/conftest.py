@@ -64,16 +64,19 @@ def frame_event_module():
 
 @pytest.fixture
 def PersonPose_class(frame_event_module):
+    """PersonPose class from frame_event module (for model tests without hailo_apps)."""
     return frame_event_module.PersonPose
 
 
 @pytest.fixture
 def FrameEvent_class(frame_event_module):
+    """FrameEvent class from frame_event module."""
     return frame_event_module.FrameEvent
 
 
 @pytest.fixture
 def validate_frame_event_func(frame_event_module):
+    """validate_frame_event function from frame_event module."""
     return frame_event_module.validate_frame_event
 
 

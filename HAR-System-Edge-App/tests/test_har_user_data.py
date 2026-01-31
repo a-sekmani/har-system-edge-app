@@ -66,3 +66,15 @@ class TestHARUserData:
         user_data2 = har_user_data_class()
         assert getattr(user_data2, "log_pose_summary", False) is False
         assert getattr(user_data2, "dump_frames_path", None) is None
+
+    def test_has_phase2_counters_default_zero(self, har_user_data_class):
+        """HARUserData should have Phase 2 tracking counters defaulting to 0 or empty."""
+        user_data = har_user_data_class()
+        assert getattr(user_data, "unique_track_ids", None) is not None
+        assert len(getattr(user_data, "unique_track_ids", set())) == 0
+        assert getattr(user_data, "new_tracks_created", None) == 0
+        assert getattr(user_data, "tracks_ended", None) == 0
+        assert getattr(user_data, "id_switch_suspected", None) == 0
+        assert getattr(user_data, "multi_person_frames", None) == 0
+        assert getattr(user_data, "detections_total", None) == 0
+        assert getattr(user_data, "filtered_detections_total", None) == 0

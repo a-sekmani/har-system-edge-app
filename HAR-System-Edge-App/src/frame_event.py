@@ -1,12 +1,12 @@
 """
-Frame Event model for Phase 1: raw pose data (no tracking, no cloud).
+Frame Event model: raw pose data per frame (Phase 1 schema + Phase 2 track_id).
 
 Schema:
 - COCO-17 keypoint order (single source of truth).
 - Missing keypoint sentinel: [-1, -1, 0.0] (same type for all keypoints; no null).
-- PersonPose: bbox [x1, y1, x2, y2] pixels, bbox_conf, 17 keypoints [x, y, c].
+- PersonPose: bbox [x1, y1, x2, y2] pixels, bbox_conf, 17 keypoints [x, y, c], track_id (int).
 - FrameEvent: frame_number, timestamp_ms, image {width, height}, persons.
-All structures are JSON-serializable.
+All structures are JSON-serializable. Validation does not depend on track_id.
 """
 
 from dataclasses import dataclass, field
@@ -51,16 +51,21 @@ def _keypoint_sentinel() -> List[float]:
     return list(MISSING_KEYPOINT_SENTINEL)
 
 
+# Sentinel for unknown track ID when metadata/fallback fails. Valid output should use real id when tracking is enabled.
+TRACK_ID_UNKNOWN = -1
+
 # ---------------------------------------------------------------------------
 # PersonPose
 # ---------------------------------------------------------------------------
 @dataclass
 class PersonPose:
-    """One person's pose: bbox in pixels, detection confidence, 17 keypoints [x, y, c]."""
+    """One person's pose: bbox in pixels, detection confidence, 17 keypoints [x, y, c], track_id.
+    track_id: int; use TRACK_ID_UNKNOWN (-1) only when tracking cannot assign an id. Valid output should have real id when tracking is enabled."""
 
     bbox: List[float]  # [x1, y1, x2, y2] in pixels
     bbox_conf: float
     keypoints: List[List[float]]  # 17 elements, each [x, y, c]; use MISSING_KEYPOINT_SENTINEL for missing
+    track_id: int = TRACK_ID_UNKNOWN  # required in output; -1 = unknown when fallback fails
 
     def __post_init__(self) -> None:
         if len(self.keypoints) != NUM_COCO_KEYPOINTS:
@@ -74,6 +79,7 @@ class PersonPose:
             "bbox": list(self.bbox),
             "bbox_conf": self.bbox_conf,
             "keypoints": [list(kp) for kp in self.keypoints],
+            "track_id": self.track_id,
         }
 
     @classmethod
@@ -83,6 +89,7 @@ class PersonPose:
         image_width: int,
         image_height: int,
         store_raw_sample: bool = False,
+        track_id: Optional[int] = None,
     ) -> "PersonPose":
         """
         Build PersonPose from a hailo detection (label "person") and image dimensions.
@@ -156,7 +163,8 @@ class PersonPose:
             global _debug_raw_keypoints_sample
             _debug_raw_keypoints_sample = raw_sample
 
-        return cls(bbox=bbox_px, bbox_conf=bbox_conf, keypoints=keypoints)
+        tid = track_id if track_id is not None else TRACK_ID_UNKNOWN
+        return cls(bbox=bbox_px, bbox_conf=bbox_conf, keypoints=keypoints, track_id=tid)
 
 
 # ---------------------------------------------------------------------------

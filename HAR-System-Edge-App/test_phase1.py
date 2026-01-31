@@ -126,6 +126,7 @@ def check_phase1_conditions(counters, min_person_frames=MIN_PERSON_FRAMES):
 
 
 def main():
+    """Run Phase 1 acceptance: run app, parse counters, print conditions and PASS/FAIL."""
     print("=" * 60)
     print("Phase 1 Acceptance Test")
     print("=" * 60)
