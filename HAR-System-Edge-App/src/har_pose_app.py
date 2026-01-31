@@ -7,8 +7,10 @@ Uses hailo-apps as a library for Pose analysis from Raspberry Pi camera.
 # region imports
 import argparse
 import json
+import os
 import sys
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +51,8 @@ hailo_logger = get_logger(__name__)
 import hailo
 from src.frame_event import FrameEvent, PersonPose, validate_frame_event, TRACK_ID_UNKNOWN
 from src.tracker import TrackingConfig, FallbackTracker, get_metadata_track_id
+from src.cloud_schema import build_cloud_payload
+from src.cloud_client import CloudConfig, CloudSender, CloudSendQueue
 # endregion imports
 
 
@@ -149,6 +153,78 @@ def get_har_parser():
         "--log-tracking-summary",
         action="store_true",
         help="Log Phase 2 tracking summary periodically.",
+    )
+    # Phase 3 cloud streaming
+    parser.add_argument(
+        "--enable-cloud",
+        action="store_true",
+        help="Enable cloud event streaming (build and send frame events).",
+    )
+    parser.add_argument(
+        "--cloud-url",
+        type=str,
+        default="",
+        metavar="URL",
+        help="Cloud base URL for ingest (e.g. https://api.example.com).",
+    )
+    parser.add_argument(
+        "--cloud-api-key",
+        type=str,
+        default="",
+        metavar="KEY",
+        help="API key for cloud auth (or set CLOUD_API_KEY env).",
+    )
+    parser.add_argument(
+        "--cloud-ingest-path",
+        type=str,
+        default="/v1/edge/events",
+        metavar="PATH",
+        help="Path appended to cloud URL for POST.",
+    )
+    parser.add_argument(
+        "--send-every-n-frames",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Build and send cloud event every N valid frames.",
+    )
+    parser.add_argument(
+        "--max-queue-size",
+        type=int,
+        default=1000,
+        metavar="N",
+        help="Max in-memory queue size for cloud events; drop when full.",
+    )
+    parser.add_argument(
+        "--send-timeout-ms",
+        type=int,
+        default=5000,
+        metavar="MS",
+        help="HTTP timeout in milliseconds.",
+    )
+    parser.add_argument(
+        "--max-retries",
+        type=int,
+        default=2,
+        metavar="N",
+        help="Retries per event on send failure.",
+    )
+    parser.add_argument(
+        "--drop-policy",
+        type=str,
+        choices=["oldest", "newest"],
+        default="oldest",
+        help="When queue is full: drop oldest or newest event.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Build and count cloud payloads but do not POST (events_sent=0).",
+    )
+    parser.add_argument(
+        "--no-verify-tls",
+        action="store_true",
+        help="Disable TLS verification for cloud HTTPS.",
     )
     return parser
 
@@ -310,6 +386,22 @@ class HARUserData(app_callback_class):
         # Detection filter counters (before vs after filter)
         self.detections_total = 0  # raw person detections from ROI (before filter)
         self.filtered_detections_total = 0  # detections excluded by min_bbox_area / min_bbox_height / min_pose_confidence
+        # Phase 3 cloud (set from main when enable_cloud)
+        self.enable_cloud = False
+        self.dry_run = False
+        self.events_built = 0
+        self.events_sent = 0
+        self.events_failed = 0
+        self.events_dropped = 0
+        self.queue_depth_max = 0
+        self.cloud_queue = None  # CloudSendQueue when enable_cloud and not dry_run
+        self.cloud_sender = None
+        self.cloud_config = None  # CloudConfig; device_id, session_id, model for build_cloud_payload
+        self.send_every_n_frames = 1
+        self.device_id = ""
+        self.session_id = ""
+        self.model_name = "yolov8m_pose"
+        self.tracking_source_str = "metadata"
 
 
 # -----------------------------------------------------------------------------------------------
@@ -522,6 +614,27 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.frames_with_landmarks += 1
     if any(len(p.keypoints) != 17 for p in persons):
         user_data.frames_keypoints_len_not_17 += 1
+    # Phase 3: build and enqueue cloud event (rate-controlled); drain one to avoid blocking
+    if getattr(user_data, "enable_cloud", False) and (
+        frame_number % getattr(user_data, "send_every_n_frames", 1)
+    ) == 0:
+        user_data.events_built += 1
+        if not getattr(user_data, "dry_run", True) and getattr(user_data, "cloud_queue", None) is not None:
+            payload = build_cloud_payload(
+                event,
+                device_id=getattr(user_data, "device_id", ""),
+                session_id=getattr(user_data, "session_id", ""),
+                model=getattr(user_data, "model_name", "yolov8m_pose"),
+                tracking_source=getattr(user_data, "tracking_source_str", "metadata"),
+                fps_current=user_data.fps_tracker.get_fps(),
+                fps_avg=user_data.fps_tracker.get_average_fps(),
+            )
+            user_data.cloud_queue.enqueue(payload)
+            user_data.cloud_queue.drain_one()
+            user_data.events_sent = user_data.cloud_queue.counters.get("events_sent", 0)
+            user_data.events_failed = user_data.cloud_queue.counters.get("events_failed", 0)
+            user_data.events_dropped = user_data.cloud_queue.counters.get("events_dropped", 0)
+            user_data.queue_depth_max = user_data.cloud_queue.counters.get("queue_depth_max", 0)
     if getattr(user_data, "log_pose_summary", False) and (
         current_time - getattr(user_data, "last_pose_summary_time", 0)
     ) >= getattr(user_data, "pose_summary_interval", 5.0):
@@ -603,6 +716,18 @@ def _log_fps_if_due(user_data, current_time):
             getattr(user_data, "detections_total", 0),
             getattr(user_data, "filtered_detections_total", 0),
         )
+        if getattr(user_data, "enable_cloud", False):
+            queue_depth = user_data.cloud_queue.queue_depth() if getattr(user_data, "cloud_queue", None) else 0
+            hailo_logger.info(
+                "Phase3 summary: events_built=%s, events_sent=%s, events_failed=%s, events_dropped=%s, "
+                "queue_depth=%s, queue_depth_max=%s",
+                getattr(user_data, "events_built", 0),
+                getattr(user_data, "events_sent", 0),
+                getattr(user_data, "events_failed", 0),
+                getattr(user_data, "events_dropped", 0),
+                queue_depth,
+                getattr(user_data, "queue_depth_max", 0),
+            )
         user_data.last_fps_log_time = current_time
 
 
@@ -684,6 +809,18 @@ def _print_final_stats(user_data):
             getattr(user_data, "detections_total", 0),
             getattr(user_data, "filtered_detections_total", 0),
         )
+        if getattr(user_data, "enable_cloud", False):
+            queue_depth = user_data.cloud_queue.queue_depth() if getattr(user_data, "cloud_queue", None) else 0
+            hailo_logger.info(
+                "Phase3 final: events_built=%s, events_sent=%s, events_failed=%s, events_dropped=%s, "
+                "queue_depth=%s, queue_depth_max=%s",
+                getattr(user_data, "events_built", 0),
+                getattr(user_data, "events_sent", 0),
+                getattr(user_data, "events_failed", 0),
+                getattr(user_data, "events_dropped", 0),
+                queue_depth,
+                getattr(user_data, "queue_depth_max", 0),
+            )
     except Exception as e:
         hailo_logger.warning("Could not print final stats: %s", e)
 
@@ -717,6 +854,45 @@ def main():
     )
     user_data.fallback_tracker = FallbackTracker(user_data.tracking_config)
     user_data.log_tracking_summary = getattr(opts, "log_tracking_summary", False)
+
+    # Phase 3 cloud streaming
+    user_data.enable_cloud = getattr(opts, "enable_cloud", False)
+    user_data.dry_run = getattr(opts, "dry_run", False)
+    user_data.send_every_n_frames = max(1, int(getattr(opts, "send_every_n_frames", 1)))
+    user_data.device_id = os.environ.get("DEVICE_ID", "")
+    if not user_data.device_id:
+        try:
+            import socket
+            user_data.device_id = socket.gethostname() or "edge-device"
+        except Exception:
+            user_data.device_id = "edge-device"
+    user_data.session_id = str(uuid.uuid4())
+    user_data.model_name = getattr(opts, "model_name", None) or "yolov8m_pose"
+    user_data.tracking_source_str = getattr(opts, "tracking_source", "metadata")
+    if user_data.enable_cloud and not user_data.dry_run and getattr(opts, "cloud_url", "").strip():
+        cloud_base_url = opts.cloud_url.strip().rstrip("/")
+        cloud_config = CloudConfig(
+            cloud_base_url=cloud_base_url,
+            cloud_ingest_path=getattr(opts, "cloud_ingest_path", "/v1/edge/events") or "/v1/edge/events",
+            api_key=getattr(opts, "cloud_api_key", "") or "",
+            timeout_ms=getattr(opts, "send_timeout_ms", 5000),
+            max_retries=getattr(opts, "max_retries", 2),
+            backoff_seconds=0.5,
+            verify_tls=not getattr(opts, "no_verify_tls", False),
+            compression=None,
+            max_queue_size=getattr(opts, "max_queue_size", 1000),
+            drop_policy=getattr(opts, "drop_policy", "oldest") or "oldest",
+        )
+        user_data.cloud_config = cloud_config
+        phase3_counters = {"events_sent": 0, "events_failed": 0, "events_dropped": 0, "queue_depth_max": 0}
+        user_data.cloud_sender = CloudSender(cloud_config)
+        user_data.cloud_queue = CloudSendQueue(cloud_config, user_data.cloud_sender, phase3_counters)
+        hailo_logger.info("Phase 3 cloud enabled: url=%s, queue_size=%s", cloud_base_url, cloud_config.max_queue_size)
+    elif user_data.enable_cloud and user_data.dry_run:
+        user_data.cloud_queue = None
+        user_data.cloud_sender = None
+        user_data.cloud_config = None
+        hailo_logger.info("Phase 3 cloud dry-run: building payloads only, no POST")
 
     hailo_logger.info("Running pipeline...")
     hailo_logger.info("Press Ctrl+C to stop")

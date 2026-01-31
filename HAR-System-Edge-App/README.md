@@ -9,7 +9,9 @@ HAR-System-Edge-App/
 ├── src/
 │   ├── frame_event.py            # FrameEvent, PersonPose (with track_id), COCO-17, validation
 │   ├── tracker.py                # Phase 2: TrackingConfig, FallbackTracker, get_metadata_track_id
-│   └── har_pose_app.py           # Main application (Phase 1 + Phase 2)
+│   ├── cloud_schema.py           # Phase 3: Cloud Event schema, build_cloud_payload()
+│   ├── cloud_client.py           # Phase 3: CloudSender (HTTP POST), CloudSendQueue, retry, drop policy
+│   └── har_pose_app.py           # Main application (Phase 1 + Phase 2 + Phase 3)
 ├── tests/
 │   ├── conftest.py
 │   ├── test_parser.py
@@ -22,10 +24,15 @@ HAR-System-Edge-App/
 │   ├── test_validation.py
 │   ├── test_phase1_logic.py
 │   ├── test_tracker.py            # Phase 2: tracker core tests
-│   └── test_phase2_logic.py       # Phase 2: parse_counters, check_phase2_conditions
+│   ├── test_phase2_logic.py       # Phase 2: parse_counters, check_phase2_conditions
+│   ├── test_cloud_schema.py       # Phase 3: payload schema, keypoints length 17
+│   └── test_cloud_client.py       # Phase 3: queue drop policy, retry, CloudSender
 ├── test_phase0.py                # Phase 0 acceptance test script
 ├── test_phase1.py                # Phase 1 acceptance test script
 ├── test_phase2.py                # Phase 2 acceptance test script (tracking)
+├── test_phase3.py                # Phase 3 acceptance test script (cloud streaming dry-run / enable_cloud false)
+├── tools/
+│   └── mock_cloud_server.py      # Mock HTTP server for Phase 3 E2E (POST -> 200, no deps)
 ├── pytest.ini
 ├── README.md
 └── requirements.txt
@@ -156,6 +163,84 @@ Runs the app with `--no-display` and `--tracking-source fallback` for 30 seconds
 
 **Optional two-person mode:** Run with two persons in view; criteria include `multi_person_frames >= 30`, `unique_track_ids` in 2–6, `id_switch_suspected <= 10` (script can be extended with a flag for "two" mode).
 
+### Phase 3 — Cloud streaming
+
+Phase 3 streams **tracks and 17 keypoints** (no images, no analytics) from the edge to a configurable cloud endpoint. The app acts as a **producer only**; analytics run in the cloud. When `--enable-cloud` is false, Phase 1 and Phase 2 behaviour and counters are unchanged.
+
+**Cloud Event schema (JSON payload):**
+
+- **event_type**: `"frame_event"` (constant).
+- **source**: `device_id` (string, stable per device), `session_id` (UUID per run), `model` (e.g. from config), `tracking_source` (`"metadata"` | `"fallback"`).
+- **frame**: `frame_index`, `ts_monotonic_ms` or `ts_unix_ms`, `image_w`, `image_h`, optional `fps_current`, `fps_avg`.
+- **persons**: list of objects with `track_id` (int), `bbox_xyxy` (or documented bbox format), optional `score` (bbox confidence), `keypoints` (array of 17; each element `{name, x, y, c}` with fixed COCO-17 order), `keypoints_format`: `"coco17"`, `coords`: `"pixel"`.
+
+No image data is sent in Phase 3.
+
+**Transport:** HTTP POST to a configurable base URL + ingest path. Auth via `Authorization: Bearer <api_key>` or `X-API-Key`; configurable timeout, retries, optional TLS verification. WS/SSE can be added later.
+
+**Queue and drop policy:** In-memory queue with configurable `max_queue_size`. When the queue is full, one event is dropped: **drop oldest** (default) so the newest is kept, or **drop newest** (configurable via `--drop-policy`). On send failure, the client retries up to `max_retries` with backoff; after exhaustion the event is dropped and `events_failed` / `events_dropped` are incremented. Sending does not block the pipeline: the callback enqueues and drains at most one item per valid frame so FPS stays stable.
+
+**Rate control:** `send_every_n_frames` (default 1) controls how often a cloud event is built and enqueued (e.g. 3 = every 3rd valid frame).
+
+**Phase 3 counters** (logged in FPS interval and at exit when `enable_cloud`):
+
+| Counter | Meaning |
+|--------|--------|
+| events_built | Events built and (if not dry-run) enqueued |
+| events_sent | Successfully sent to cloud |
+| events_failed | Send failed after max_retries (dropped) |
+| events_dropped | Dropped due to full queue or retry exhaustion |
+| queue_depth | Current queue size |
+| queue_depth_max | Maximum queue size seen |
+
+**CLI flags (Phase 3):**
+
+- `--enable-cloud`: Enable cloud streaming (default: False).
+- `--cloud-url`: Base URL for the cloud endpoint.
+- `--cloud-api-key`: API key; if empty, read from env `CLOUD_API_KEY`.
+- `--cloud-ingest-path`: Path appended to base URL (e.g. `/v1/edge/events`).
+- `--send-every-n-frames`: Send every N valid frames (default: 1).
+- `--max-queue-size`: Maximum in-memory queue size.
+- `--send-timeout-ms`: HTTP send timeout in milliseconds.
+- `--max-retries`: Number of retries on send failure.
+- `--drop-policy`: `oldest` or `newest` when queue is full (default: oldest).
+- `--dry-run`: Build and count payloads, do not POST (events_sent remains 0).
+- `--verify-tls` / `--no-verify-tls`: TLS certificate verification (default: verify).
+
+**Acceptance criteria (Phase 3):**
+
+- With `--enable-cloud false`: Phase 1/2 behaviour and counters unchanged; no Phase 3 activity.
+- **Dry-run:** With `--enable-cloud --dry-run`, payloads are built and counted (`events_built` meets threshold), not sent (`events_sent == 0`, `events_failed == 0`), and validation errors are zero.
+- **Live send:** With a working endpoint, `events_sent > 0`, `events_failed` minimal, `queue_depth_max` bounded, and FPS not significantly worse than Phase 2 (e.g. within ~10%).
+- Optional: On network disconnect, the app does not crash; `events_failed` and `events_dropped` increase as expected.
+
+#### Phase 3 acceptance test
+
+```bash
+python test_phase3.py
+```
+
+Runs five checks: (1) with `--enable-cloud false`, Phase 3 counters zero; (2) with `--enable-cloud --dry-run`, events_built meets threshold, events_sent == 0, events_failed == 0, invalid_validate == 0; (3) with `--send-every-n-frames 2`, events_built ≈ total_frames/2 within margin; (4) local HTTP sink: app sends to a local POST-accepting server, events_sent > 0, events_failed == 0, server_received >= events_sent; (5) invalid URL: events_failed > 0 (queue/drop policy exercised).
+
+#### Mock cloud server (E2E)
+
+A mock HTTP server accepts POST and returns 200 immediately so you can verify send/receive end-to-end and confirm FPS stays high when the backend is fast (no blocking on timeouts). Stdlib only; no extra dependencies.
+
+**Terminal 1 — start mock server:**
+
+```bash
+python tools/mock_cloud_server.py --port 9999
+```
+
+**Terminal 2 — run app against mock:**
+
+```bash
+python src/har_pose_app.py --input rpi --no-display --show-fps \
+  --enable-cloud --cloud-url http://127.0.0.1:9999 --send-every-n-frames 10
+```
+
+**Expected:** `events_sent > 0`, `events_failed == 0`, `events_dropped == 0`, FPS close to ~30 (may drop slightly with payload). The mock prints `POST /v1/edge/events -> 200 (received=N)` for each request.
+
 ### Options
 
 - `--input rpi`: Use Raspberry Pi camera
@@ -171,6 +256,17 @@ Runs the app with `--no-display` and `--tracking-source fallback` for 30 seconds
 - `--min-bbox-height H`: Filter detections with bbox height below H pixels
 - `--min-pose-confidence C`: Filter detections with avg keypoint confidence below C (0–1)
 - `--log-tracking-summary`: Log Phase 2 tracking summary periodically
+- `--enable-cloud`: Enable Phase 3 cloud streaming (default: False)
+- `--cloud-url`: Base URL for cloud endpoint
+- `--cloud-api-key`: API key (or use env CLOUD_API_KEY)
+- `--cloud-ingest-path`: Ingest path (e.g. /v1/edge/events)
+- `--send-every-n-frames`: Send every N valid frames (default: 1)
+- `--max-queue-size`: Max in-memory queue size for cloud events
+- `--send-timeout-ms`: HTTP send timeout in ms
+- `--max-retries`: Retries on send failure
+- `--drop-policy`: oldest or newest when queue full (default: oldest)
+- `--dry-run`: Build and count payloads, do not POST
+- `--verify-tls` / `--no-verify-tls`: TLS verification (default: verify)
 - `--help`: Show all options
 
 ## Testing
@@ -203,6 +299,8 @@ pytest HAR-System-Edge-App/tests/ -v
 - **test_phase1_logic.py**: `parse_counters()` and `check_phase1_conditions()` from test_phase1 (log parsing, condition logic)
 - **test_tracker.py**: `TrackingConfig` (including min_bbox_height, min_pose_confidence); `get_metadata_track_id`; FallbackTracker (stable id, missing/recover, expire, two persons, IoU threshold, min_bbox_area)
 - **test_phase2_logic.py**: Phase 2 `parse_counters` (including detections_total, filtered_detections_total) and `check_phase2_single_person_conditions` / `check_phase2_two_person_conditions` (log parsing, single/two-person criteria)
+- **test_cloud_schema.py**: Phase 3 payload schema; `build_cloud_payload()` (event_type, source, frame, persons with len(keypoints)==17, keypoints_format coco17, coords pixel); schema sanity (device_id, session_id, frame_index, timestamp, persons list, per-person track_id, 17 keypoints, x,y within image bounds or sentinel)
+- **test_cloud_client.py**: Phase 3 CloudConfig (API key from env), CloudSender (POST URL/headers, failure path), CloudSendQueue (drop policy oldest/newest when full, drain_one retry and counters)
 
 ### Phase 0 acceptance tests
 
@@ -230,6 +328,14 @@ python test_phase1.py
 python test_phase2.py
 ```
 
+### Phase 3 acceptance test
+
+- Run `test_phase3.py`: (1) enable_cloud false; (2) dry-run criteria; (3) send_every_n_frames=2; (4) local HTTP sink (events_sent > 0, server_received >= events_sent); (5) invalid URL (events_failed > 0).
+
+```bash
+python test_phase3.py
+```
+
 ### Acceptance criteria
 
 - Application runs without errors for 5–10 minutes
@@ -237,9 +343,10 @@ python test_phase2.py
 - No errors in logs
 - Phase 1: All Phase 1 conditions met (frame_events ≥ 95% of total_frames, invalid_caps/validate 0, keypoints_len_not_17 = 0, frames_with_persons ≥ 30, frames_with_landmarks ≥ 80% of frames_with_persons)
 - Phase 2: All Phase 2 single-person conditions met (same as Phase 1 plus unique_track_ids ≤ 2, id_switch_suspected == 0)
+- Phase 3: With `--enable-cloud false`, Phase 1/2 unchanged; dry-run: events_built meets threshold, events_sent == 0, events_failed == 0; optional live send: events_sent > 0, FPS within ~10% of Phase 2
 
 ## Notes
 
 - The app uses `GStreamerPoseEstimationApp` from `hailo-apps` without modification
 - `--no-display` is implemented by overriding `get_pipeline_string()` to use `fakesink`
-- The callback builds `FrameEvent` per frame (with `track_id`), validates (see `src/frame_event.py`), applies the detection filter (min_bbox_area / min_bbox_height / min_pose_confidence), updates Phase 1 and Phase 2 counters, and logs FPS
+- The callback builds `FrameEvent` per frame (with `track_id`), validates (see `src/frame_event.py`), applies the detection filter (min_bbox_area / min_bbox_height / min_pose_confidence), updates Phase 1 and Phase 2 counters, optionally builds and enqueues Phase 3 cloud payloads (rate-limited by send_every_n_frames) and drains the queue (non-blocking), then logs FPS
