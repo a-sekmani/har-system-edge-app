@@ -53,6 +53,8 @@ from src.frame_event import FrameEvent, PersonPose, validate_frame_event, TRACK_
 from src.tracker import TrackingConfig, FallbackTracker, get_metadata_track_id
 from src.cloud_schema import build_cloud_payload
 from src.cloud_client import CloudConfig, CloudSender, CloudSendQueue
+from src.window_assembler import WindowAssembler
+from src.windows_client import WindowsConfig, WindowsSender, WindowsSendQueue
 # endregion imports
 
 
@@ -225,6 +227,63 @@ def get_har_parser():
         "--no-verify-tls",
         action="store_true",
         help="Disable TLS verification for cloud HTTPS.",
+    )
+    # Phase 4 windows ingest
+    parser.add_argument(
+        "--cloud-mode",
+        type=str,
+        choices=["frames", "windows"],
+        default="frames",
+        help="Cloud send mode: frames (per-frame) or windows (30-frame windows). Default: frames.",
+    )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=30,
+        metavar="N",
+        help="Window size in frames (default: 30).",
+    )
+    parser.add_argument(
+        "--window-stride",
+        type=int,
+        default=30,
+        metavar="N",
+        help="Window stride; use same as window-size for non-overlap (default: 30).",
+    )
+    parser.add_argument(
+        "--cloud-windows-path",
+        type=str,
+        default="/v1/windows/ingest",
+        metavar="PATH",
+        help="Path for windows ingest POST (default: /v1/windows/ingest).",
+    )
+    parser.add_argument(
+        "--normalize-keypoints",
+        type=lambda x: x.lower() in ("true", "1", "yes"),
+        default=True,
+        metavar="BOOL",
+        help="Normalize keypoints to 0..1 in windows mode (default: true).",
+    )
+    parser.add_argument(
+        "--max-windows-queue-size",
+        type=int,
+        default=500,
+        metavar="N",
+        help="Max in-memory queue size for windows; drop when full (default: 500).",
+    )
+    parser.add_argument(
+        "--window-max-buffers",
+        type=int,
+        default=50,
+        metavar="N",
+        help="Max track buffers to prevent memory growth (default: 50).",
+    )
+    parser.add_argument(
+        "--windows-drop-policy",
+        type=str,
+        choices=["oldest", "newest"],
+        default="oldest",
+        help="When windows queue is full: drop oldest or newest (default: oldest).",
     )
     return parser
 
@@ -402,6 +461,16 @@ class HARUserData(app_callback_class):
         self.session_id = ""
         self.model_name = "yolov8m_pose"
         self.tracking_source_str = "metadata"
+        # Phase 4 windows
+        self.cloud_mode = "frames"
+        self.camera_id = "default"
+        self.window_assembler = None
+        self.windows_sender = None  # WindowsSendQueue when cloud_mode=windows and not dry_run
+        self.windows_built = 0
+        self.windows_sent = 0
+        self.windows_failed = 0
+        self.windows_dropped = 0
+        self.windows_queue_depth_max = 0
 
 
 # -----------------------------------------------------------------------------------------------
@@ -614,8 +683,8 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.frames_with_landmarks += 1
     if any(len(p.keypoints) != 17 for p in persons):
         user_data.frames_keypoints_len_not_17 += 1
-    # Phase 3: build and enqueue cloud event (rate-controlled); drain one to avoid blocking
-    if getattr(user_data, "enable_cloud", False) and (
+    # Phase 3: build and enqueue frame event (only when cloud_mode=frames)
+    if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "frames" and (
         frame_number % getattr(user_data, "send_every_n_frames", 1)
     ) == 0:
         user_data.events_built += 1
@@ -635,6 +704,23 @@ def pose_extraction_callback(element, buffer, user_data):
             user_data.events_failed = user_data.cloud_queue.counters.get("events_failed", 0)
             user_data.events_dropped = user_data.cloud_queue.counters.get("events_dropped", 0)
             user_data.queue_depth_max = user_data.cloud_queue.counters.get("queue_depth_max", 0)
+    # Phase 4: windows — push frame to assembler; enqueue completed windows (non-blocking)
+    if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "windows" and getattr(user_data, "window_assembler", None) is not None:
+        completed = user_data.window_assembler.push_frame(
+            event,
+            device_id=getattr(user_data, "device_id", ""),
+            camera_id=getattr(user_data, "camera_id", "default"),
+            session_id=getattr(user_data, "session_id", ""),
+        )
+        user_data.windows_built += len(completed)
+        if not getattr(user_data, "dry_run", True) and getattr(user_data, "windows_sender", None) is not None:
+            for w in completed:
+                user_data.windows_sender.enqueue(w.to_dict())
+        if getattr(user_data, "windows_sender", None) is not None:
+            user_data.windows_sent = user_data.windows_sender.counters.get("windows_sent", 0)
+            user_data.windows_failed = user_data.windows_sender.counters.get("windows_failed", 0)
+            user_data.windows_dropped = user_data.windows_sender.counters.get("windows_dropped", 0)
+            user_data.windows_queue_depth_max = user_data.windows_sender.counters.get("windows_queue_depth_max", 0)
     if getattr(user_data, "log_pose_summary", False) and (
         current_time - getattr(user_data, "last_pose_summary_time", 0)
     ) >= getattr(user_data, "pose_summary_interval", 5.0):
@@ -716,7 +802,7 @@ def _log_fps_if_due(user_data, current_time):
             getattr(user_data, "detections_total", 0),
             getattr(user_data, "filtered_detections_total", 0),
         )
-        if getattr(user_data, "enable_cloud", False):
+        if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "frames":
             queue_depth = user_data.cloud_queue.queue_depth() if getattr(user_data, "cloud_queue", None) else 0
             hailo_logger.info(
                 "Phase3 summary: events_built=%s, events_sent=%s, events_failed=%s, events_dropped=%s, "
@@ -727,6 +813,18 @@ def _log_fps_if_due(user_data, current_time):
                 getattr(user_data, "events_dropped", 0),
                 queue_depth,
                 getattr(user_data, "queue_depth_max", 0),
+            )
+        if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "windows":
+            wq_depth = user_data.windows_sender.queue_depth() if getattr(user_data, "windows_sender", None) else 0
+            hailo_logger.info(
+                "Phase4 summary: windows_built=%s, windows_sent=%s, windows_failed=%s, windows_dropped=%s, "
+                "windows_queue_depth=%s, windows_queue_depth_max=%s",
+                getattr(user_data, "windows_built", 0),
+                getattr(user_data, "windows_sent", 0),
+                getattr(user_data, "windows_failed", 0),
+                getattr(user_data, "windows_dropped", 0),
+                wq_depth,
+                getattr(user_data, "windows_queue_depth_max", 0),
             )
         user_data.last_fps_log_time = current_time
 
@@ -809,7 +907,7 @@ def _print_final_stats(user_data):
             getattr(user_data, "detections_total", 0),
             getattr(user_data, "filtered_detections_total", 0),
         )
-        if getattr(user_data, "enable_cloud", False):
+        if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "frames":
             queue_depth = user_data.cloud_queue.queue_depth() if getattr(user_data, "cloud_queue", None) else 0
             hailo_logger.info(
                 "Phase3 final: events_built=%s, events_sent=%s, events_failed=%s, events_dropped=%s, "
@@ -821,6 +919,20 @@ def _print_final_stats(user_data):
                 queue_depth,
                 getattr(user_data, "queue_depth_max", 0),
             )
+        if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "windows":
+            wq_depth = user_data.windows_sender.queue_depth() if getattr(user_data, "windows_sender", None) else 0
+            hailo_logger.info(
+                "Phase4 final: windows_built=%s, windows_sent=%s, windows_failed=%s, windows_dropped=%s, "
+                "windows_queue_depth=%s, windows_queue_depth_max=%s",
+                getattr(user_data, "windows_built", 0),
+                getattr(user_data, "windows_sent", 0),
+                getattr(user_data, "windows_failed", 0),
+                getattr(user_data, "windows_dropped", 0),
+                wq_depth,
+                getattr(user_data, "windows_queue_depth_max", 0),
+            )
+            if getattr(user_data, "windows_sender", None) is not None:
+                user_data.windows_sender.shutdown()
     except Exception as e:
         hailo_logger.warning("Could not print final stats: %s", e)
 
@@ -869,30 +981,72 @@ def main():
     user_data.session_id = str(uuid.uuid4())
     user_data.model_name = getattr(opts, "model_name", None) or "yolov8m_pose"
     user_data.tracking_source_str = getattr(opts, "tracking_source", "metadata")
-    if user_data.enable_cloud and not user_data.dry_run and getattr(opts, "cloud_url", "").strip():
-        cloud_base_url = opts.cloud_url.strip().rstrip("/")
-        cloud_config = CloudConfig(
-            cloud_base_url=cloud_base_url,
-            cloud_ingest_path=getattr(opts, "cloud_ingest_path", "/v1/edge/events") or "/v1/edge/events",
-            api_key=getattr(opts, "cloud_api_key", "") or "",
-            timeout_ms=getattr(opts, "send_timeout_ms", 5000),
-            max_retries=getattr(opts, "max_retries", 2),
-            backoff_seconds=0.5,
-            verify_tls=not getattr(opts, "no_verify_tls", False),
-            compression=None,
-            max_queue_size=getattr(opts, "max_queue_size", 1000),
-            drop_policy=getattr(opts, "drop_policy", "oldest") or "oldest",
+    user_data.cloud_mode = getattr(opts, "cloud_mode", "frames") or "frames"
+    user_data.camera_id = os.environ.get("CAMERA_ID", "default")
+
+    if user_data.enable_cloud and user_data.cloud_mode == "frames":
+        if not user_data.dry_run and getattr(opts, "cloud_url", "").strip():
+            cloud_base_url = opts.cloud_url.strip().rstrip("/")
+            cloud_config = CloudConfig(
+                cloud_base_url=cloud_base_url,
+                cloud_ingest_path=getattr(opts, "cloud_ingest_path", "/v1/edge/events") or "/v1/edge/events",
+                api_key=getattr(opts, "cloud_api_key", "") or "",
+                timeout_ms=getattr(opts, "send_timeout_ms", 5000),
+                max_retries=getattr(opts, "max_retries", 2),
+                backoff_seconds=0.5,
+                verify_tls=not getattr(opts, "no_verify_tls", False),
+                compression=None,
+                max_queue_size=getattr(opts, "max_queue_size", 1000),
+                drop_policy=getattr(opts, "drop_policy", "oldest") or "oldest",
+            )
+            user_data.cloud_config = cloud_config
+            phase3_counters = {"events_sent": 0, "events_failed": 0, "events_dropped": 0, "queue_depth_max": 0}
+            user_data.cloud_sender = CloudSender(cloud_config)
+            user_data.cloud_queue = CloudSendQueue(cloud_config, user_data.cloud_sender, phase3_counters)
+            hailo_logger.info("Phase 3 cloud enabled: url=%s, queue_size=%s", cloud_base_url, cloud_config.max_queue_size)
+        else:
+            user_data.cloud_queue = None
+            user_data.cloud_sender = None
+            user_data.cloud_config = None
+            hailo_logger.info("Phase 3 cloud dry-run or no URL: building payloads only, no POST")
+
+    if user_data.enable_cloud and user_data.cloud_mode == "windows":
+        window_size = max(1, int(getattr(opts, "window_size", 30)))
+        window_stride = max(1, int(getattr(opts, "window_stride", 30)))
+        window_max_buffers = max(1, int(getattr(opts, "window_max_buffers", 50)))
+        user_data.window_assembler = WindowAssembler(
+            window_size=window_size,
+            window_stride=window_stride,
+            window_max_buffers=window_max_buffers,
         )
-        user_data.cloud_config = cloud_config
-        phase3_counters = {"events_sent": 0, "events_failed": 0, "events_dropped": 0, "queue_depth_max": 0}
-        user_data.cloud_sender = CloudSender(cloud_config)
-        user_data.cloud_queue = CloudSendQueue(cloud_config, user_data.cloud_sender, phase3_counters)
-        hailo_logger.info("Phase 3 cloud enabled: url=%s, queue_size=%s", cloud_base_url, cloud_config.max_queue_size)
-    elif user_data.enable_cloud and user_data.dry_run:
-        user_data.cloud_queue = None
-        user_data.cloud_sender = None
-        user_data.cloud_config = None
-        hailo_logger.info("Phase 3 cloud dry-run: building payloads only, no POST")
+        if not user_data.dry_run and getattr(opts, "cloud_url", "").strip():
+            cloud_base_url = opts.cloud_url.strip().rstrip("/")
+            windows_config = WindowsConfig(
+                cloud_base_url=cloud_base_url,
+                cloud_windows_path=getattr(opts, "cloud_windows_path", "/v1/windows/ingest") or "/v1/windows/ingest",
+                api_key=getattr(opts, "cloud_api_key", "") or "",
+                connect_timeout_sec=0.5,
+                read_timeout_sec=2.0,
+                verify_tls=not getattr(opts, "no_verify_tls", False),
+                max_queue_size=getattr(opts, "max_windows_queue_size", 500),
+                drop_policy=getattr(opts, "windows_drop_policy", "oldest") or "oldest",
+            )
+            phase4_counters = {
+                "windows_sent": 0,
+                "windows_failed": 0,
+                "windows_dropped": 0,
+                "windows_queue_depth_max": 0,
+            }
+            windows_sender = WindowsSender(windows_config)
+            user_data.windows_sender = WindowsSendQueue(windows_config, windows_sender, phase4_counters)
+            user_data.windows_sender.start()
+            hailo_logger.info(
+                "Phase 4 windows enabled: url=%s, path=%s, queue_size=%s",
+                cloud_base_url, windows_config.cloud_windows_path, windows_config.max_queue_size,
+            )
+        else:
+            user_data.windows_sender = None
+            hailo_logger.info("Phase 4 windows dry-run or no URL: building windows only, no POST")
 
     hailo_logger.info("Running pipeline...")
     hailo_logger.info("Press Ctrl+C to stop")
