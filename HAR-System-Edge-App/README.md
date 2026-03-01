@@ -11,7 +11,11 @@ HAR-System-Edge-App/
 │   ├── tracker.py                # Phase 2: TrackingConfig, FallbackTracker, get_metadata_track_id
 │   ├── cloud_schema.py           # Phase 3: Cloud Event schema, build_cloud_payload()
 │   ├── cloud_client.py           # Phase 3: CloudSender (HTTP POST), CloudSendQueue, retry, drop policy
-│   └── har_pose_app.py           # Main application (Phase 1 + Phase 2 + Phase 3)
+│   ├── window_schema.py          # Phase 4: WindowPayload schema, keypoints normalization
+│   ├── window_assembler.py       # Phase 4: WindowAssembler, buffer per track, non-overlap windows
+│   ├── windows_client.py         # Phase 4: WindowsSender (HTTP POST), WindowsSendQueue
+│   ├── skeleton_exporter.py      # Dataset Export: COCO-17 keypoints to JSONL files
+│   └── har_pose_app.py           # Main application (Phase 1-4 + Dataset Export)
 ├── tests/
 │   ├── conftest.py
 │   ├── test_parser.py
@@ -30,9 +34,10 @@ HAR-System-Edge-App/
 ├── test_phase0.py                # Phase 0 acceptance test script
 ├── test_phase1.py                # Phase 1 acceptance test script
 ├── test_phase2.py                # Phase 2 acceptance test script (tracking)
-├── test_phase3.py                # Phase 3 acceptance test script (cloud streaming dry-run / enable_cloud false)
+├── test_phase3.py                # Phase 3 acceptance test script (cloud streaming)
+├── test_phase4.py                # Phase 4 acceptance test script (windows ingest)
 ├── tools/
-│   └── mock_cloud_server.py      # Mock HTTP server for Phase 3 E2E (POST -> 200, no deps)
+│   └── mock_cloud_server.py      # Mock HTTP server for E2E testing (POST -> 200, no deps)
 ├── pytest.ini
 ├── README.md
 └── requirements.txt
@@ -222,6 +227,112 @@ python test_phase3.py
 
 Runs five checks: (1) with `--enable-cloud false`, Phase 3 counters zero; (2) with `--enable-cloud --dry-run`, events_built meets threshold, events_sent == 0, events_failed == 0, invalid_validate == 0; (3) with `--send-every-n-frames 2`, events_built ≈ total_frames/2 within margin; (4) local HTTP sink: app sends to a local POST-accepting server, events_sent > 0, events_failed == 0, server_received >= events_sent; (5) invalid URL: events_failed > 0 (queue/drop policy exercised).
 
+### Phase 4 — Windows Ingest
+
+Phase 4 extends cloud streaming to send **sliding windows** of keypoints instead of individual frames. This aggregates 30 frames of normalized keypoints per track into a single payload for HAR model inference in the cloud.
+
+**Window schema (JSON payload):**
+
+- **window_id**: UUID for the window.
+- **created_at**: ISO 8601 timestamp.
+- **device_id**, **camera_id**, **session_id**: Source identifiers.
+- **track_id**: Person track ID.
+- **ts_start_ms**, **ts_end_ms**: Window time range (Unix milliseconds).
+- **fps**: Estimated FPS for the window.
+- **window_size**: Number of frames (default: 30).
+- **keypoints**: `[T][17][3]` array — T frames × 17 COCO keypoints × 3 values (x, y, confidence), normalized to `[0, 1]`.
+
+**Keypoint normalization:**
+- `x_norm = x_pixel / image_w` (clamped to [0, 1])
+- `y_norm = y_pixel / image_h` (clamped to [0, 1])
+- Missing keypoints: `[0.0, 0.0, 0.0]`
+
+**CLI flags (Phase 4):**
+
+- `--cloud-mode frames|windows`: Send individual frames or windows (default: frames).
+- `--window-size N`: Frames per window (default: 30).
+- `--window-stride N`: Stride between windows (default: 30, non-overlapping).
+- `--window-max-buffers N`: Max concurrent track buffers (default: 50).
+- `--windows-queue-size N`: Max queue size for windows (default: 500).
+- `--windows-drop-policy oldest|newest`: Drop policy when queue full (default: oldest).
+
+**Phase 4 counters** (logged at exit when `--cloud-mode windows`):
+
+| Counter | Meaning |
+|---------|---------|
+| windows_built | Windows assembled and enqueued |
+| windows_sent | Successfully sent to cloud |
+| windows_failed | Send failed after retries |
+| windows_dropped | Dropped due to full queue |
+| windows_queue_depth | Current queue size |
+| windows_queue_depth_max | Maximum queue size seen |
+
+#### Phase 4 acceptance test
+
+```bash
+python test_phase4.py
+```
+
+#### Example: Run with windows mode
+
+```bash
+python src/har_pose_app.py --input rpi --no-display \
+  --enable-cloud --cloud-mode windows \
+  --cloud-url http://192.168.1.100:8000 --cloud-api-key your-key
+```
+
+### Dataset Export Mode
+
+Export COCO-17 keypoints from video files to JSONL files for HAR model training. This mode processes videos through the same Hailo pipeline but saves keypoints locally instead of sending to the cloud.
+
+**Use case:** Extract skeleton data from NTU RGB+D or similar datasets using the exact same pose estimation pipeline as the edge device, ensuring training data matches inference data.
+
+**Output format (JSONL):**
+
+Each video produces one `.skeleton.jsonl` file with:
+- **Line 1 (meta):** Video metadata (name, action_id, fps, frame_count, dimensions, schema_version)
+- **Lines 2+:** Per-frame data (frame_index, timestamp, persons with normalized keypoints)
+
+**CLI flags (Dataset Export):**
+
+- `--export-skeleton`: Enable skeleton export mode (disables cloud).
+- `--video-dir PATH`: Directory containing `.avi` video files.
+- `--export-out PATH`: Output directory for skeleton files.
+- `--export-format jsonl|json`: Output format (default: jsonl).
+- `--max-videos N`: Maximum videos to process (0 = all).
+- `--skip-existing 0|1`: Skip if output file exists (1 = skip).
+
+**Output structure:**
+```
+export_out/
+├── A009/
+│   ├── S001C001P001R001A009_rgb.skeleton.jsonl
+│   └── S001C001P002R001A009_rgb.skeleton.jsonl
+├── A010/
+│   └── ...
+└── summary.csv
+```
+
+**Example:**
+
+```bash
+python src/har_pose_app.py \
+  --export-skeleton \
+  --video-dir /data/ntu_rgb \
+  --export-out /data/ntu_skeleton \
+  --max-videos 100 \
+  --skip-existing 1 \
+  --no-display
+```
+
+**Skeleton file format:**
+
+```json
+{"type":"meta","schema_version":1,"video_name":"S001C001P001R001A009_rgb.avi","action_id":"A009","fps_avg":30.0,"frame_count":120,"image_w":1920,"image_h":1080,"pose_model":"yolov8m_pose","skeleton_format":"coco17","coords":"normalized","device_id":"rpi5-001","camera_id":"cam0","session_id":"...","source_video":"S001C001P001R001A009_rgb.avi"}
+{"type":"frame","frame_index":0,"ts_unix_ms":1234567890123,"coords":"normalized","skeleton_format":"coco17","mean_conf":0.85,"persons":[{"track_id":1,"keypoints":[[0.5,0.3,0.95],...]}]}
+...
+```
+
 #### Mock cloud server (E2E)
 
 A mock HTTP server accepts POST and returns 200 immediately so you can verify send/receive end-to-end and confirm FPS stays high when the backend is fast (no blocking on timeouts). Stdlib only; no extra dependencies.
@@ -243,30 +354,53 @@ python src/har_pose_app.py --input rpi --no-display --show-fps \
 
 ### Options
 
+**Input/Display:**
 - `--input rpi`: Use Raspberry Pi camera
 - `--input usb`: Use USB camera
+- `--input PATH`: Use video file as input
 - `--no-display`: Disable video display (use fakesink)
 - `--show-fps`: Show or log FPS (includes frame_events and invalid_frames counts)
-- `--log-pose-summary`: Log pose summary every N seconds (persons count, sample bbox/keypoints)
-- `--dump-frames path`: Write each FrameEvent (or every K-th) to a JSON file for debugging
+- `--log-pose-summary`: Log pose summary every N seconds
+- `--dump-frames path`: Write each FrameEvent to a JSON file for debugging
+
+**Tracking (Phase 2):**
 - `--tracking-source metadata|fallback`: Track ID source (default: metadata)
-- `--max-missing-frames N`: Expire track after N frames without detection (default: 15)
+- `--max-missing-frames N`: Expire track after N frames (default: 15)
 - `--iou-threshold X`: IoU threshold for fallback tracker (default: 0.3)
-- `--min-bbox-area A`: Filter detections below this bbox area in pixels² (default: 0)
+- `--min-bbox-area A`: Filter detections below bbox area in pixels²
 - `--min-bbox-height H`: Filter detections with bbox height below H pixels
-- `--min-pose-confidence C`: Filter detections with avg keypoint confidence below C (0–1)
-- `--log-tracking-summary`: Log Phase 2 tracking summary periodically
-- `--enable-cloud`: Enable Phase 3 cloud streaming (default: False)
-- `--cloud-url`: Base URL for cloud endpoint
-- `--cloud-api-key`: API key (or use env CLOUD_API_KEY)
-- `--cloud-ingest-path`: Ingest path (e.g. /v1/edge/events)
-- `--send-every-n-frames`: Send every N valid frames (default: 1)
-- `--max-queue-size`: Max in-memory queue size for cloud events
-- `--send-timeout-ms`: HTTP send timeout in ms
-- `--max-retries`: Retries on send failure
-- `--drop-policy`: oldest or newest when queue full (default: oldest)
-- `--dry-run`: Build and count payloads, do not POST
-- `--verify-tls` / `--no-verify-tls`: TLS verification (default: verify)
+- `--min-pose-confidence C`: Filter detections with avg keypoint confidence below C
+- `--log-tracking-summary`: Log tracking summary periodically
+
+**Cloud Streaming (Phase 3/4):**
+- `--enable-cloud`: Enable cloud streaming (default: False)
+- `--cloud-url URL`: Base URL for cloud endpoint
+- `--cloud-api-key KEY`: API key (or use env CLOUD_API_KEY)
+- `--cloud-mode frames|windows`: Send frames or windows (default: frames)
+- `--cloud-ingest-path PATH`: Ingest path for frames (e.g. /v1/edge/events)
+- `--send-every-n-frames N`: Send every N valid frames (default: 1)
+- `--max-queue-size N`: Max queue size for frame events
+- `--send-timeout-ms MS`: HTTP send timeout
+- `--max-retries N`: Retries on send failure
+- `--drop-policy oldest|newest`: Drop policy when queue full
+- `--dry-run`: Build payloads without sending
+- `--verify-tls` / `--no-verify-tls`: TLS verification
+
+**Windows Mode (Phase 4):**
+- `--window-size N`: Frames per window (default: 30)
+- `--window-stride N`: Stride between windows (default: 30)
+- `--window-max-buffers N`: Max concurrent track buffers (default: 50)
+- `--windows-queue-size N`: Max queue size for windows (default: 500)
+- `--windows-drop-policy oldest|newest`: Drop policy for windows
+
+**Dataset Export:**
+- `--export-skeleton`: Enable skeleton export mode
+- `--video-dir PATH`: Directory containing video files
+- `--export-out PATH`: Output directory for skeleton files
+- `--export-format jsonl|json`: Output format (default: jsonl)
+- `--max-videos N`: Max videos to process (0 = all)
+- `--skip-existing 0|1`: Skip existing output files
+
 - `--help`: Show all options
 
 ## Testing
@@ -336,17 +470,28 @@ python test_phase2.py
 python test_phase3.py
 ```
 
+### Phase 4 acceptance test
+
+- Run `test_phase4.py`: Validates windows mode with local HTTP sink, checks windows_sent > 0, keypoints shape [30][17][3].
+
+```bash
+python test_phase4.py
+```
+
 ### Acceptance criteria
 
 - Application runs without errors for 5–10 minutes
-- FPS is shown or logged consistently (Phase 0 and Phase 1: frame_events, invalid_caps, invalid_validate)
+- FPS is shown or logged consistently
 - No errors in logs
-- Phase 1: All Phase 1 conditions met (frame_events ≥ 95% of total_frames, invalid_caps/validate 0, keypoints_len_not_17 = 0, frames_with_persons ≥ 30, frames_with_landmarks ≥ 80% of frames_with_persons)
-- Phase 2: All Phase 2 single-person conditions met (same as Phase 1 plus unique_track_ids ≤ 2, id_switch_suspected == 0)
-- Phase 3: With `--enable-cloud false`, Phase 1/2 unchanged; dry-run: events_built meets threshold, events_sent == 0, events_failed == 0; optional live send: events_sent > 0, FPS within ~10% of Phase 2
+- **Phase 1:** frame_events ≥ 95% of total_frames, invalid_caps/validate = 0, keypoints_len_not_17 = 0, frames_with_persons ≥ 30, frames_with_landmarks ≥ 80% of frames_with_persons
+- **Phase 2:** Same as Phase 1 plus unique_track_ids ≤ 2, id_switch_suspected == 0
+- **Phase 3:** With `--enable-cloud false`, Phase 1/2 unchanged; dry-run: events_built meets threshold, events_sent == 0; live send: events_sent > 0
+- **Phase 4:** windows_sent > 0, keypoints shape [30][17][3], windows_failed == 0
 
 ## Notes
 
 - The app uses `GStreamerPoseEstimationApp` from `hailo-apps` without modification
 - `--no-display` is implemented by overriding `get_pipeline_string()` to use `fakesink`
-- The callback builds `FrameEvent` per frame (with `track_id`), validates (see `src/frame_event.py`), applies the detection filter (min_bbox_area / min_bbox_height / min_pose_confidence), updates Phase 1 and Phase 2 counters, optionally builds and enqueues Phase 3 cloud payloads (rate-limited by send_every_n_frames) and drains the queue (non-blocking), then logs FPS
+- The callback builds `FrameEvent` per frame (with `track_id`), validates, applies detection filters, updates counters, and optionally streams to cloud
+- Video file input runs once and exits automatically (no looping)
+- Dataset Export mode uses the same pose estimation pipeline for consistent training/inference data

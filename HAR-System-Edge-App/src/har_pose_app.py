@@ -55,6 +55,7 @@ from src.cloud_schema import build_cloud_payload
 from src.cloud_client import CloudConfig, CloudSender, CloudSendQueue
 from src.window_assembler import WindowAssembler
 from src.windows_client import WindowsConfig, WindowsSender, WindowsSendQueue
+from src.skeleton_exporter import SkeletonExporter, extract_action_from_filename, write_summary_csv, ExportStats
 # endregion imports
 
 
@@ -285,6 +286,48 @@ def get_har_parser():
         default="oldest",
         help="When windows queue is full: drop oldest or newest (default: oldest).",
     )
+    # Dataset Export Mode (skeleton extraction without cloud)
+    parser.add_argument(
+        "--export-skeleton",
+        action="store_true",
+        help="Enable skeleton export mode: extract COCO-17 keypoints to JSONL files (disables cloud).",
+    )
+    parser.add_argument(
+        "--video-dir",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Directory containing .avi videos for batch skeleton export.",
+    )
+    parser.add_argument(
+        "--export-out",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Output directory for skeleton JSONL files.",
+    )
+    parser.add_argument(
+        "--export-format",
+        type=str,
+        choices=["jsonl", "json"],
+        default="jsonl",
+        help="Output format for skeleton files (default: jsonl).",
+    )
+    parser.add_argument(
+        "--max-videos",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Max videos to process in export mode (0=all).",
+    )
+    parser.add_argument(
+        "--skip-existing",
+        type=int,
+        default=0,
+        choices=[0, 1],
+        metavar="0|1",
+        help="Skip export if output file already exists (1=skip, 0=overwrite).",
+    )
     return parser
 
 
@@ -354,6 +397,14 @@ class HARPoseEstimationApp(GStreamerPoseEstimationApp):
         )
         hailo_logger.debug("Pipeline string: %s", pipeline_string)
         return pipeline_string
+
+    def on_eos(self):
+        """Handle end-of-stream: shutdown instead of looping for file sources."""
+        if self.source_type == "file":
+            hailo_logger.info("Video file finished (EOS). Shutting down...")
+            self.shutdown()
+        else:
+            super().on_eos()
 
 
 # -----------------------------------------------------------------------------------------------
@@ -938,11 +989,240 @@ def _print_final_stats(user_data):
 
 
 # -----------------------------------------------------------------------------------------------
+# Skeleton Export Callback (for dataset export mode)
+# -----------------------------------------------------------------------------------------------
+def skeleton_export_callback(element, buffer, user_data):
+    """
+    Callback for skeleton export mode: extract pose, write to exporter.
+    
+    - Selects single person with highest bbox_conf per frame
+    - Writes normalized keypoints to JSONL via SkeletonExporter
+    - No cloud, no windows, no tracking complexity
+    - frame_index starts from 0 (standard convention)
+    """
+    if buffer is None:
+        return
+
+    user_data.fps_tracker.update()
+    current_time = time.time()
+    timestamp_ms = int(current_time * 1000.0)
+    
+    if not hasattr(user_data, "_export_frame_index"):
+        user_data._export_frame_index = 0
+    frame_index = user_data._export_frame_index
+    user_data._export_frame_index += 1
+
+    pad = element.get_static_pad("src")
+    format_caps, width, height = get_caps_from_pad(pad)
+    if width is None or height is None or width <= 0 or height <= 0:
+        user_data.invalid_caps_count += 1
+        user_data.invalid_frame_count += 1
+        return
+
+    width, height = int(width), int(height)
+    
+    if not hasattr(user_data, "_export_caps_set") or not user_data._export_caps_set:
+        user_data._export_image_w = width
+        user_data._export_image_h = height
+        user_data._export_caps_set = True
+
+    roi = hailo.get_roi_from_buffer(buffer)
+    detections = roi.get_objects_typed(hailo.HAILO_DETECTION)
+
+    persons = []
+    for det in detections:
+        if det.get_label() != "person":
+            continue
+        try:
+            pose = PersonPose.from_hailo_detection(det, width, height, store_raw_sample=False, track_id=1)
+            persons.append(pose)
+        except Exception:
+            continue
+
+    user_data.frame_events_count += 1
+    if persons:
+        user_data.frames_with_persons += 1
+    else:
+        user_data.frames_no_persons += 1
+    user_data.persons_total += len(persons)
+
+    exporter = getattr(user_data, "skeleton_exporter", None)
+    if exporter is not None:
+        exporter.write_frame(frame_index, timestamp_ms, persons, width, height)
+
+
+# -----------------------------------------------------------------------------------------------
+# Batch Export Functions
+# -----------------------------------------------------------------------------------------------
+def run_batch_export(opts):
+    """
+    Run skeleton export on all videos in video_dir.
+    
+    For each video:
+    1. Create SkeletonExporter output file
+    2. Run pipeline with skeleton_export_callback
+    3. Collect stats and write summary.csv
+    """
+    from pathlib import Path
+    
+    video_dir = Path(opts.video_dir)
+    export_out = Path(opts.export_out)
+    export_format = getattr(opts, "export_format", "jsonl") or "jsonl"
+    max_videos = getattr(opts, "max_videos", 0) or 0
+    skip_existing = getattr(opts, "skip_existing", 0) == 1
+    
+    if not video_dir.exists():
+        print(f"ERROR: video_dir does not exist: {video_dir}")
+        return
+    
+    export_out.mkdir(parents=True, exist_ok=True)
+    
+    videos = sorted(video_dir.rglob("*.avi"))
+    if max_videos > 0:
+        videos = videos[:max_videos]
+    
+    print(f"Found {len(videos)} videos to export")
+    
+    all_stats = []
+    
+    for i, video_path in enumerate(videos):
+        action_id = extract_action_from_filename(video_path.name)
+        
+        out_dir = export_out / action_id
+        out_dir.mkdir(parents=True, exist_ok=True)
+        
+        stem = video_path.stem
+        ext = "jsonl" if export_format == "jsonl" else "json"
+        out_file = out_dir / f"{stem}.skeleton.{ext}"
+        
+        if skip_existing and out_file.exists():
+            print(f"[{i + 1}/{len(videos)}] SKIP {video_path.name} (exists)")
+            continue
+        
+        print(f"[{i + 1}/{len(videos)}] Processing {video_path.name} (action={action_id})")
+        
+        stats = process_single_video_export(
+            video_path=video_path,
+            output_path=out_file,
+            action_id=action_id,
+            export_format=export_format,
+            opts=opts,
+        )
+        
+        if stats:
+            all_stats.append(stats)
+            print(
+                f"exported video={stats.video_name} action={stats.action_id} "
+                f"frames={stats.frames_total} people_frames={stats.frames_with_people} "
+                f"mean_conf={stats.mean_conf:.2f} out={stats.output_path}"
+            )
+    
+    if all_stats:
+        summary_path = export_out / "summary.csv"
+        write_summary_csv(summary_path, all_stats)
+        print(f"Summary written to {summary_path} ({len(all_stats)} videos)")
+
+
+def process_single_video_export(video_path, output_path, action_id, export_format, opts):
+    """
+    Process a single video for skeleton export.
+    
+    Creates a new app instance, runs the pipeline, and returns ExportStats.
+    """
+    from pathlib import Path
+    
+    user_data = HARUserData()
+    user_data.enable_cloud = False
+    user_data.skeleton_exporter = SkeletonExporter(
+        output_dir=str(output_path.parent.parent),
+        format=export_format,
+    )
+    user_data._export_caps_set = False
+    user_data._export_image_w = 0
+    user_data._export_image_h = 0
+    
+    parser = get_har_parser()
+    
+    import sys
+    original_argv = sys.argv.copy()
+    sys.argv = [
+        sys.argv[0],
+        "--input", str(video_path),
+        "--no-display",
+    ]
+    
+    try:
+        app = HARPoseEstimationApp(skeleton_export_callback, user_data, parser)
+        
+        fps = getattr(app, "frame_rate", 30.0) or 30.0
+        image_w = getattr(app, "video_width", 1920) or 1920
+        image_h = getattr(app, "video_height", 1080) or 1080
+        
+        user_data.skeleton_exporter.start_video(
+            video_name=video_path.name,
+            action_id=action_id,
+            fps=fps,
+            image_w=image_w,
+            image_h=image_h,
+        )
+        
+        try:
+            app.run()
+        except KeyboardInterrupt:
+            pass
+        except SystemExit:
+            pass
+        
+        if user_data._export_caps_set:
+            image_w = user_data._export_image_w
+            image_h = user_data._export_image_h
+        
+        stats = user_data.skeleton_exporter.finish_video()
+        return stats
+        
+    except Exception as e:
+        print(f"ERROR processing {video_path.name}: {e}")
+        import traceback
+        traceback.print_exc()
+        if user_data.skeleton_exporter:
+            user_data.skeleton_exporter.close()
+        return None
+    finally:
+        sys.argv = original_argv
+
+
+# -----------------------------------------------------------------------------------------------
 # Main function
 # -----------------------------------------------------------------------------------------------
 def main():
     """Application main entry point."""
     hailo_logger.info("Starting HAR Pose Estimation App...")
+
+    import argparse
+    temp_parser = argparse.ArgumentParser(add_help=False)
+    temp_parser.add_argument("--export-skeleton", action="store_true")
+    temp_parser.add_argument("--video-dir", type=str, default=None)
+    temp_parser.add_argument("--export-out", type=str, default=None)
+    temp_parser.add_argument("--export-format", type=str, default="jsonl")
+    temp_parser.add_argument("--max-videos", type=int, default=0)
+    temp_parser.add_argument("--skip-existing", type=int, default=0)
+    temp_args, _ = temp_parser.parse_known_args()
+    
+    if temp_args.export_skeleton:
+        if not temp_args.video_dir or not temp_args.export_out:
+            print("ERROR: --export-skeleton requires --video-dir and --export-out")
+            return
+        print("=" * 60)
+        print("SKELETON EXPORT MODE")
+        print("=" * 60)
+        print(f"  video_dir: {temp_args.video_dir}")
+        print(f"  export_out: {temp_args.export_out}")
+        print(f"  format: {temp_args.export_format}")
+        print(f"  max_videos: {temp_args.max_videos if temp_args.max_videos > 0 else 'all'}")
+        print(f"  skip_existing: {bool(temp_args.skip_existing)}")
+        print("=" * 60)
+        run_batch_export(temp_args)
+        return
 
     parser = get_har_parser()
     user_data = HARUserData()
