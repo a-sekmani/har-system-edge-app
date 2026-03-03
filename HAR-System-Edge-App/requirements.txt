@@ -6,6 +6,11 @@
 # For unit tests
 pytest>=7.0.0
 
+# Face recognition (required for --enable-face)
+insightface>=0.7.0
+onnxruntime>=1.14.0
+# opencv-python-headless is pulled in by insightface
+
 # To install hailo-apps as a dependency:
 # hailo-apps>=25.12.0
 

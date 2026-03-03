@@ -8,7 +8,9 @@ Uses hailo-apps as a library for Pose analysis from Raspberry Pi camera.
 import argparse
 import json
 import os
+import queue
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -20,7 +22,7 @@ _PROJECT_ROOT = _SCRIPT_DIR.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from hailo_apps.python.core.common.buffer_utils import get_caps_from_pad
+from hailo_apps.python.core.common.buffer_utils import get_caps_from_pad, get_numpy_from_buffer
 from hailo_apps.python.core.common.core import (
     get_pipeline_parser,
     get_resource_path,
@@ -56,6 +58,15 @@ from src.cloud_client import CloudConfig, CloudSender, CloudSendQueue
 from src.window_assembler import WindowAssembler
 from src.windows_client import WindowsConfig, WindowsSender, WindowsSendQueue
 from src.skeleton_exporter import SkeletonExporter, extract_action_from_filename, write_summary_csv, ExportStats
+# Face recognition (optional)
+try:
+    from src.face.gallery_client import fetch_face_gallery, fetch_gallery_version
+    from src.face.gallery_store import load_gallery as face_load_gallery, save_gallery as face_save_gallery
+    from src.face.recognizer import FaceRecognizer
+    from src.face.tracker_binding import TrackerBinding
+    _FACE_AVAILABLE = True
+except ImportError:
+    _FACE_AVAILABLE = False
 # endregion imports
 
 
@@ -328,6 +339,121 @@ def get_har_parser():
         metavar="0|1",
         help="Skip export if output file already exists (1=skip, 0=overwrite).",
     )
+    # Face recognition (cloud gallery + CPU inference)
+    parser.add_argument(
+        "--enable-face",
+        action="store_true",
+        help="Enable face recognition: sync gallery from cloud, match faces to pose tracks, attach person to windows.",
+    )
+    parser.add_argument(
+        "--face-gallery-url",
+        type=str,
+        default="",
+        metavar="URL",
+        help="Base URL for face gallery (overrides --cloud-url for gallery). Can also set FACE_GALLERY_URL or CLOUD_URL.",
+    )
+    parser.add_argument(
+        "--cloud-face-gallery-path",
+        type=str,
+        default="/v1/face-gallery",
+        metavar="PATH",
+        help="Path for face gallery GET (default: /v1/face-gallery).",
+    )
+    parser.add_argument(
+        "--cloud-face-gallery-version-path",
+        type=str,
+        default="/v1/face-gallery/version",
+        metavar="PATH",
+        help="Path for face gallery version GET (default: /v1/face-gallery/version).",
+    )
+    parser.add_argument(
+        "--face-gallery-cache",
+        type=str,
+        default="/var/lib/har/face_gallery/",
+        metavar="PATH",
+        help="Local cache directory for face gallery (default: /var/lib/har/face_gallery/).",
+    )
+    parser.add_argument(
+        "--face-gallery-refresh-s",
+        type=float,
+        default=60.0,
+        metavar="SEC",
+        help="Refresh face gallery from cloud every N seconds (default: 60).",
+    )
+    parser.add_argument(
+        "--face-gallery-timeout-s",
+        type=float,
+        default=5.0,
+        metavar="SEC",
+        help="HTTP timeout for face gallery requests in seconds (default: 5).",
+    )
+    parser.add_argument(
+        "--face-model",
+        type=str,
+        default="insightface",
+        help="Face model backend (default: insightface).",
+    )
+    parser.add_argument(
+        "--face-det-size",
+        type=int,
+        default=256,
+        metavar="N",
+        help="Face detection input size (default: 256, use 320 for higher accuracy).",
+    )
+    parser.add_argument(
+        "--face-max-faces",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Max faces to detect per frame (default: 1 for better FPS).",
+    )
+    parser.add_argument(
+        "--face-sim-threshold",
+        type=float,
+        default=0.35,
+        metavar="X",
+        help="Min similarity (or 1 - distance) to accept a match (default: 0.35).",
+    )
+    parser.add_argument(
+        "--face-min-det-conf",
+        type=float,
+        default=0.6,
+        metavar="X",
+        help="Min face detection confidence (default: 0.6).",
+    )
+    parser.add_argument(
+        "--face-skip-frames",
+        type=int,
+        default=10,
+        metavar="N",
+        help="Run face inference every N frames to reduce CPU (default: 10).",
+    )
+    parser.add_argument(
+        "--face-recheck-every-s",
+        type=float,
+        default=2.0,
+        metavar="SEC",
+        help="Re-verify identity per track every N seconds (default: 2.0).",
+    )
+    parser.add_argument(
+        "--face-track-ttl-s",
+        type=float,
+        default=10.0,
+        metavar="SEC",
+        help="Identity TTL per track without new face (default: 10).",
+    )
+    parser.add_argument(
+        "--window-attach-person",
+        type=str,
+        choices=["auto", "never", "always"],
+        default="auto",
+        help="Attach person to window: auto (when identity known), never, always (include null for unknown).",
+    )
+    parser.add_argument(
+        "--log-face-summary",
+        action="store_true",
+        help="Log face recognition summary periodically.",
+    )
     return parser
 
 
@@ -522,6 +648,165 @@ class HARUserData(app_callback_class):
         self.windows_failed = 0
         self.windows_dropped = 0
         self.windows_queue_depth_max = 0
+        # Face recognition (set from main when enable_face)
+        self.enable_face = False
+        self.face_gallery = None  # current in-memory gallery (FaceGallery or None)
+        self.face_recognizer = None  # FaceRecognizer instance
+        self.face_tracker_binding = None  # TrackerBinding instance
+        self.face_gallery_next_refresh_ts = 0.0  # next refresh timestamp
+        self.log_face_summary = False
+        self.last_face_summary_time = time.time()
+        self.face_summary_interval = 5.0
+
+
+# -----------------------------------------------------------------------------------------------
+# Face gallery sync and refresh
+# -----------------------------------------------------------------------------------------------
+def _init_face_recognition(user_data: HARUserData) -> None:
+    """Initialize face recognizer, tracker binding, and load/sync gallery. No-op if face not available."""
+    if not _FACE_AVAILABLE or not getattr(user_data, "enable_face", False):
+        return
+    opts = getattr(user_data, "_face_opts", None)
+    if not opts:
+        return
+    try:
+        user_data.face_recognizer = FaceRecognizer(
+            det_size=opts["face_det_size"],
+            max_faces=opts["face_max_faces"],
+            min_det_conf=opts["face_min_det_conf"],
+            sim_threshold=opts["face_sim_threshold"],
+        )
+        user_data.face_tracker_binding = TrackerBinding(
+            iou_threshold=0.2,
+            track_ttl_s=opts["face_track_ttl_s"],
+            recheck_every_s=opts["face_recheck_every_s"],
+            sim_threshold=opts["face_sim_threshold"],
+            min_votes_stable=2,
+        )
+    except Exception as e:
+        hailo_logger.warning("Face recognizer/tracker init failed: %s", e)
+        user_data.face_recognizer = None
+        user_data.face_tracker_binding = None
+        return
+    cache_dir = opts["face_gallery_cache"]
+    timeout_s = opts["face_gallery_timeout_s"]
+    refresh_s = opts["face_gallery_refresh_s"]
+    base_url = opts.get("cloud_url", "")
+    api_key = opts.get("cloud_api_key", "")
+    gallery_path = opts.get("cloud_face_gallery_path", "/v1/face-gallery")
+    version_path = opts.get("cloud_face_gallery_version_path", "/v1/face-gallery/version")
+    user_data.face_gallery = face_load_gallery(cache_dir)
+    if user_data.face_gallery:
+        hailo_logger.info(
+            "face gallery loaded from cache version=%s persons=%s embeddings=%s",
+            user_data.face_gallery.version,
+            len(user_data.face_gallery.persons),
+            user_data.face_gallery.total_embeddings(),
+        )
+    if base_url:
+        try:
+            remote_version = fetch_gallery_version(base_url, version_path, api_key, timeout_s)
+            if remote_version is not None:
+                if user_data.face_gallery is None or user_data.face_gallery.version != remote_version:
+                    gallery = fetch_face_gallery(base_url, gallery_path, api_key, timeout_s)
+                    if gallery:
+                        user_data.face_gallery = gallery
+                        face_save_gallery(cache_dir, gallery)
+                        hailo_logger.info(
+                            "face gallery synced from cloud version=%s persons=%s embeddings=%s (saved to cache)",
+                            gallery.version, len(gallery.persons), gallery.total_embeddings(),
+                        )
+                else:
+                    hailo_logger.info(
+                        "face gallery version matches cloud (%s); using cached gallery",
+                        remote_version,
+                    )
+        except Exception as e:
+            hailo_logger.warning("face gallery sync failed: %s", e)
+    else:
+        hailo_logger.info(
+            "Face recognition enabled but no gallery URL (set FACE_GALLERY_URL or CLOUD_URL or use --cloud-url); using cache only."
+        )
+    if user_data.face_gallery is None:
+        hailo_logger.info("face gallery empty; recognition will run but all matches unknown")
+    user_data.face_gallery_next_refresh_ts = time.time() + refresh_s
+
+
+def _refresh_face_gallery_if_due(user_data: HARUserData) -> None:
+    """If refresh interval elapsed, check cloud version and optionally update gallery."""
+    if not _FACE_AVAILABLE or not getattr(user_data, "enable_face", False):
+        return
+    opts = getattr(user_data, "_face_opts", None)
+    if not opts or not opts.get("cloud_url"):
+        return
+    now = time.time()
+    if now < getattr(user_data, "face_gallery_next_refresh_ts", 0):
+        return
+    cache_dir = opts["face_gallery_cache"]
+    timeout_s = opts["face_gallery_timeout_s"]
+    refresh_s = opts["face_gallery_refresh_s"]
+    base_url = opts["cloud_url"]
+    api_key = opts.get("cloud_api_key", "")
+    gallery_path = opts.get("cloud_face_gallery_path", "/v1/face-gallery")
+    version_path = opts.get("cloud_face_gallery_version_path", "/v1/face-gallery/version")
+    try:
+        remote_version = fetch_gallery_version(base_url, version_path, api_key, timeout_s)
+        if remote_version is None:
+            user_data.face_gallery_next_refresh_ts = now + refresh_s
+            return
+        current_version = user_data.face_gallery.version if user_data.face_gallery else ""
+        if remote_version != current_version:
+            gallery = fetch_face_gallery(base_url, gallery_path, api_key, timeout_s)
+            if gallery:
+                user_data.face_gallery = gallery
+                face_save_gallery(cache_dir, gallery)
+                hailo_logger.info(
+                    "face gallery refreshed version=%s persons=%s",
+                    gallery.version, len(gallery.persons),
+                )
+    except Exception as e:
+        hailo_logger.debug("face gallery refresh failed: %s", e)
+    user_data.face_gallery_next_refresh_ts = now + refresh_s
+
+
+def _face_worker_loop(user_data: "HARUserData") -> None:
+    """
+    Background thread for face recognition so it does not slow down the pipeline.
+    Reads (frame_bgr, pose_detections, now_ts) from the queue and runs detect + embed + match + binding.update.
+    """
+    face_queue = getattr(user_data, "face_queue", None)
+    if face_queue is None:
+        return
+    while True:
+        try:
+            item = face_queue.get(timeout=0.5)
+            if item is None:
+                break
+            frame_bgr, pose_detections, now_ts = item
+            rec = getattr(user_data, "face_recognizer", None)
+            binding = getattr(user_data, "face_tracker_binding", None)
+            gallery = getattr(user_data, "face_gallery", None)
+            if rec is None or binding is None:
+                continue
+            try:
+                face_dets = rec.detect_faces(frame_bgr)
+                face_detections_with_match = []
+                for fd in face_dets:
+                    emb = rec.get_embedding(frame_bgr, fd)
+                    match_result = rec.match(emb, gallery) if emb else None
+                    face_detections_with_match.append((fd, match_result))
+                lock = getattr(user_data, "face_binding_lock", None)
+                if lock is not None:
+                    with lock:
+                        binding.update(pose_detections, face_detections_with_match, now_ts=now_ts)
+                else:
+                    binding.update(pose_detections, face_detections_with_match, now_ts=now_ts)
+            except Exception as e:
+                hailo_logger.debug("face worker step failed: %s", e)
+        except queue.Empty:
+            continue
+        except Exception as e:
+            hailo_logger.debug("face worker: %s", e)
 
 
 # -----------------------------------------------------------------------------------------------
@@ -734,6 +1019,38 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.frames_with_landmarks += 1
     if any(len(p.keypoints) != 17 for p in persons):
         user_data.frames_keypoints_len_not_17 += 1
+
+    # Face recognition: refresh gallery if due; enqueue frame for face worker (no face work here to keep ~30 FPS)
+    if _FACE_AVAILABLE and getattr(user_data, "enable_face", False):
+        _refresh_face_gallery_if_due(user_data)
+        opts_face = getattr(user_data, "_face_opts", None)
+        skip_frames = int(opts_face.get("face_skip_frames", 10)) if opts_face else 10
+        face_queue = getattr(user_data, "face_queue", None)
+        if (
+            frame_number % skip_frames == 0
+            and face_queue is not None
+            and getattr(user_data, "face_recognizer", None) is not None
+            and getattr(user_data, "face_tracker_binding", None) is not None
+        ):
+            try:
+                frame_np = get_numpy_from_buffer(buffer, format_caps, width, height)
+                if hasattr(frame_np, "shape") and len(frame_np.shape) == 3 and frame_np.shape[2] == 3:
+                    import cv2
+                    frame_bgr = cv2.cvtColor(frame_np, cv2.COLOR_RGB2BGR).copy()
+                    pose_detections = [(p.track_id, (p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3])) for p in persons]
+                    try:
+                        face_queue.put_nowait((frame_bgr, pose_detections, current_time))
+                    except queue.Full:
+                        pass
+            except Exception as e:
+                hailo_logger.debug("face enqueue failed: %s", e)
+        if getattr(user_data, "log_face_summary", False) and (current_time - getattr(user_data, "last_face_summary_time", 0)) >= getattr(user_data, "face_summary_interval", 5.0):
+            user_data.last_face_summary_time = current_time
+            binding = getattr(user_data, "face_tracker_binding", None)
+            if binding and binding._identities:
+                known = sum(1 for i in binding._identities.values() if i.person_id)
+                hailo_logger.info("face summary: tracks_with_identity=%s/%s", known, len(binding._identities))
+
     # Phase 3: build and enqueue frame event (only when cloud_mode=frames)
     if getattr(user_data, "enable_cloud", False) and getattr(user_data, "cloud_mode", "frames") == "frames" and (
         frame_number % getattr(user_data, "send_every_n_frames", 1)
@@ -766,7 +1083,23 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.windows_built += len(completed)
         if not getattr(user_data, "dry_run", True) and getattr(user_data, "windows_sender", None) is not None:
             for w in completed:
-                user_data.windows_sender.enqueue(w.to_dict())
+                payload = w.to_dict()
+                if getattr(user_data, "enable_face", False) and getattr(user_data, "face_tracker_binding", None) is not None:
+                    opts_face = getattr(user_data, "_face_opts", None)
+                    attach_policy = (opts_face or {}).get("window_attach_person", "auto")
+                    lock = getattr(user_data, "face_binding_lock", None)
+                    if lock is not None:
+                        with lock:
+                            person_att = user_data.face_tracker_binding.get_identity(
+                                w.track_id, now_ts=current_time, attach_policy=attach_policy
+                            )
+                    else:
+                        person_att = user_data.face_tracker_binding.get_identity(
+                            w.track_id, now_ts=current_time, attach_policy=attach_policy
+                        )
+                    if person_att is not None:
+                        payload["person"] = person_att.to_dict()
+                user_data.windows_sender.enqueue(payload)
         if getattr(user_data, "windows_sender", None) is not None:
             user_data.windows_sent = user_data.windows_sender.counters.get("windows_sent", 0)
             user_data.windows_failed = user_data.windows_sender.counters.get("windows_failed", 0)
@@ -784,6 +1117,30 @@ def pose_extraction_callback(element, buffer, user_data):
         user_data.last_tracking_summary_time = current_time
     if getattr(user_data, "dump_frames_path", None):
         _dump_frame_event(user_data, event)
+    # Resolve person label(s) for FPS log and "Persons on screen" report (from face binding or "Unknown")
+    if not persons:
+        user_data._last_person_label = "-"
+    else:
+        binding = getattr(user_data, "face_tracker_binding", None)
+        opts_face = getattr(user_data, "_face_opts", None)
+        attach_policy = (opts_face or {}).get("window_attach_person", "auto") if opts_face else "auto"
+        now_ts = current_time
+        labels = []
+        lock = getattr(user_data, "face_binding_lock", None)
+        for p in persons:
+            if binding is not None:
+                if lock is not None:
+                    with lock:
+                        att = binding.get_identity(p.track_id, now_ts=now_ts, attach_policy=attach_policy)
+                else:
+                    att = binding.get_identity(p.track_id, now_ts=now_ts, attach_policy=attach_policy)
+                if att and (att.name or att.person_id):
+                    labels.append(att.name or att.person_id)
+                else:
+                    labels.append("Unknown")
+            else:
+                labels.append("Unknown")
+        user_data._last_person_label = ", ".join(labels)
     _log_fps_if_due(user_data, current_time)
     return
 
@@ -823,16 +1180,19 @@ def _log_tracking_summary(user_data, current_time):
 
 
 def _log_fps_if_due(user_data, current_time):
-    """Log FPS every interval (shared by callback)."""
+    """Log FPS every interval (shared by callback). Includes person name when available."""
     if current_time - user_data.last_fps_log_time >= user_data.fps_log_interval:
+        person_label = getattr(user_data, "_last_person_label", "-")
         hailo_logger.info(
             f"FPS Stats - Current: {user_data.fps_tracker.get_fps():.2f} FPS, "
             f"Average: {user_data.fps_tracker.get_average_fps():.2f} FPS, "
             f"Frames: {user_data.get_count()}, "
+            f"Person: {person_label}, "
             f"frame_events: {getattr(user_data, 'frame_events_count', 0)}, "
             f"invalid_caps: {getattr(user_data, 'invalid_caps_count', 0)}, "
             f"invalid_validate: {getattr(user_data, 'invalid_validate_count', 0)}"
         )
+        hailo_logger.info("Persons on screen: %s", person_label)
         hailo_logger.info(
             "Phase1 summary: frames_with_persons=%s, frames_no_persons=%s, persons_total=%s, "
             "frames_with_landmarks=%s, frames_keypoints_len_not_17=%s",
@@ -1230,6 +1590,7 @@ def main():
     opts = app.options_menu
     user_data.log_pose_summary = getattr(opts, "log_pose_summary", False)
     user_data.dump_frames_path = getattr(opts, "dump_frames", None)
+    user_data.no_display = getattr(opts, "no_display", False)
     # Phase 2 tracking config and fallback tracker
     user_data.tracking_config = TrackingConfig(
         tracking_enabled=True,
@@ -1327,6 +1688,50 @@ def main():
         else:
             user_data.windows_sender = None
             hailo_logger.info("Phase 4 windows dry-run or no URL: building windows only, no POST")
+
+    # Face recognition config (actual init in face package when enable_face)
+    user_data.enable_face = getattr(opts, "enable_face", False)
+    user_data.log_face_summary = getattr(opts, "log_face_summary", False)
+    if user_data.enable_face:
+        user_data._face_opts = {
+            "cloud_face_gallery_path": getattr(opts, "cloud_face_gallery_path", "/v1/face-gallery") or "/v1/face-gallery",
+            "cloud_face_gallery_version_path": getattr(opts, "cloud_face_gallery_version_path", "/v1/face-gallery/version") or "/v1/face-gallery/version",
+            "face_gallery_cache": getattr(opts, "face_gallery_cache", "/var/lib/har/face_gallery/") or "/var/lib/har/face_gallery/",
+            "face_gallery_refresh_s": max(1.0, float(getattr(opts, "face_gallery_refresh_s", 60))),
+            "face_gallery_timeout_s": max(1.0, float(getattr(opts, "face_gallery_timeout_s", 5))),
+            "face_model": getattr(opts, "face_model", "insightface") or "insightface",
+            # Default 256 to reduce detection time; 320 is more accurate but slower
+            "face_det_size": max(160, int(getattr(opts, "face_det_size", 256))),
+            # Default 1 for better FPS when a single person is present
+            "face_max_faces": max(1, int(getattr(opts, "face_max_faces", 1))),
+            "face_sim_threshold": float(getattr(opts, "face_sim_threshold", 0.35)),
+            "face_min_det_conf": float(getattr(opts, "face_min_det_conf", 0.6)),
+            # Run face recognition every 10 frames by default to improve FPS
+            "face_skip_frames": max(1, int(getattr(opts, "face_skip_frames", 10))),
+            "face_recheck_every_s": max(0.1, float(getattr(opts, "face_recheck_every_s", 2.0))),
+            "face_track_ttl_s": max(1.0, float(getattr(opts, "face_track_ttl_s", 10.0))),
+            "window_attach_person": getattr(opts, "window_attach_person", "auto") or "auto",
+            # Face gallery: fetched from cloud on each run when URL is set (priority: --face-gallery-url, --cloud-url, FACE_GALLERY_URL, CLOUD_URL)
+            "cloud_url": (
+                getattr(opts, "face_gallery_url", "")
+                or getattr(opts, "cloud_url", "")
+                or os.environ.get("FACE_GALLERY_URL", "")
+                or os.environ.get("CLOUD_URL", "")
+            ).strip().rstrip("/"),
+            "cloud_api_key": getattr(opts, "cloud_api_key", "") or os.environ.get("CLOUD_API_KEY", ""),
+        }
+        _init_face_recognition(user_data)
+        # Dedicated face recognition thread so the pipeline stays at ~30 FPS
+        if user_data.enable_face and getattr(user_data, "face_recognizer", None) is not None:
+            user_data.face_queue = queue.Queue(maxsize=1)
+            user_data.face_binding_lock = threading.Lock()
+            user_data.face_worker_thread = threading.Thread(target=_face_worker_loop, args=(user_data,), daemon=True)
+            user_data.face_worker_thread.start()
+            hailo_logger.info("Face recognition running in background thread (pipeline target ~30 FPS)")
+        else:
+            user_data.face_queue = None
+            user_data.face_binding_lock = None
+            user_data.face_worker_thread = None
 
     hailo_logger.info("Running pipeline...")
     hailo_logger.info("Press Ctrl+C to stop")

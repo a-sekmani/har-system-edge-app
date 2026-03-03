@@ -47,6 +47,19 @@ class TestParseCounters:
         assert out["invalid_caps"] == 0
         assert out["invalid_validate"] == 2
 
+    def test_parse_counters_fps_line_with_person(self):
+        """parse_counters still extracts Frames/frame_events when FPS line includes Person (face recognition)."""
+        m = _get_phase1_module()
+        log = (
+            "INFO | __main__ | FPS Stats - Current: 30.01 FPS, Average: 27.20 FPS, Frames: 116, "
+            "Person: Ahmad, frame_events: 116, invalid_caps: 0, invalid_validate: 0\n"
+        )
+        out = m.parse_counters(log)
+        assert out["total_frames"] == 116
+        assert out["frame_events"] == 116
+        assert out["invalid_caps"] == 0
+        assert out["invalid_validate"] == 0
+
     def test_parse_counters_uses_max_total_frames(self):
         """parse_counters uses snapshot where total_frames is highest (cumulative run)."""
         m = _get_phase1_module()

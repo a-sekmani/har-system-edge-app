@@ -107,3 +107,35 @@ class TestGetHarParser:
         parser = get_har_parser_func()
         args, _ = parser.parse_known_args([])
         assert getattr(args, "min_pose_confidence", "missing") is None
+
+    # --- Face recognition options (gallery URL, worker thread, FPS defaults) ---
+
+    def test_face_skip_frames_default_10(self, get_har_parser_func):
+        """Default --face-skip-frames should be 10 for better FPS."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args([])
+        assert getattr(args, "face_skip_frames", None) == 10
+
+    def test_face_skip_frames_override(self, get_har_parser_func):
+        """--face-skip-frames can override default."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--face-skip-frames", "5"])
+        assert getattr(args, "face_skip_frames", None) == 5
+
+    def test_face_det_size_default_256(self, get_har_parser_func):
+        """Default --face-det-size should be 256 for better FPS."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args([])
+        assert getattr(args, "face_det_size", None) == 256
+
+    def test_face_max_faces_default_1(self, get_har_parser_func):
+        """Default --face-max-faces should be 1 for single-person FPS."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args([])
+        assert getattr(args, "face_max_faces", None) == 1
+
+    def test_face_gallery_url_option(self, get_har_parser_func):
+        """Parser should have --face-gallery-url for gallery-only base URL."""
+        parser = get_har_parser_func()
+        args, _ = parser.parse_known_args(["--face-gallery-url", "http://192.168.1.106:8000"])
+        assert getattr(args, "face_gallery_url", "").strip().rstrip("/") == "http://192.168.1.106:8000"

@@ -3,15 +3,16 @@ Phase 4: Window payload schema for cloud ingest.
 
 - WindowPayload: JSON-serializable window (id, created_at, device_id, camera_id, session_id,
   track_id, ts_start_ms, ts_end_ms, fps, window_size, keypoints [T][17][3] normalized 0..1).
+- created_at: ISO 8601 with timezone (recommended: UTC with Z and 3 decimal places, e.g. 2026-02-24T11:32:05.123Z).
 - Missing or invalid keypoints sentinel: [0.0, 0.0, 0.0].
 - keypoints_to_17x3_normalized(): convert PersonPose.keypoints (pixel [x,y,c]) to [17][3] normalized.
 """
 
 import math
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.frame_event import NUM_COCO_KEYPOINTS, PersonPose
 
@@ -20,6 +21,19 @@ MISSING_KEYPOINT_WINDOW: List[float] = [0.0, 0.0, 0.0]
 
 FPS_CLAMP_MIN = 1.0
 FPS_CLAMP_MAX = 120.0
+
+# ISO 8601: YYYY-MM-DDTHH:mm:ss[.sss](Z|+00:00|±HH:mm). Edge must send one date-time with timezone.
+CREATED_AT_FORMAT_UTC_Z = "%Y-%m-%dT%H:%M:%S.%f"  # trim to 3 decimals and append "Z"
+
+
+def format_created_at_iso8601_utc() -> str:
+    """
+    Return current UTC time as ISO 8601 string with Z and 3 decimal places (milliseconds).
+    Format: YYYY-MM-DDTHH:mm:ss.sssZ (e.g. 2026-02-24T11:32:05.123Z).
+    Use when creating a window or at send time so the cloud shows correct Date/Time in Recent Windows.
+    """
+    now = datetime.now(timezone.utc)
+    return now.strftime(CREATED_AT_FORMAT_UTC_Z)[:-3] + "Z"
 
 
 def _safe_float(x: Any, default: float = 0.0) -> float:
@@ -70,6 +84,7 @@ class WindowPayload:
     """
     One window ready for POST /v1/windows/ingest.
     keypoints: [T][17][3] with T = window_size (e.g. 30), normalized 0..1.
+    person: optional attachment from face recognition (person_id, name, face_conf, source, verified_at_ms).
     """
 
     id: str  # UUID
@@ -83,10 +98,11 @@ class WindowPayload:
     fps: float
     window_size: int
     keypoints: List[List[List[float]]]  # [T][17][3]
+    person: Optional[Dict[str, Any]] = None  # from face recognition when available
 
     def to_dict(self) -> Dict[str, Any]:
         """JSON-serializable dict for POST body. ts_start_ms/ts_end_ms as int for cloud schema."""
-        return {
+        out = {
             "id": self.id,
             "created_at": self.created_at,
             "device_id": self.device_id,
@@ -99,6 +115,9 @@ class WindowPayload:
             "window_size": int(self.window_size),
             "keypoints": [[list(pt) for pt in frame] for frame in self.keypoints],
         }
+        if self.person is not None:
+            out["person"] = self.person
+        return out
 
 
 def build_window_payload(
@@ -121,9 +140,10 @@ def build_window_payload(
         fps = max(FPS_CLAMP_MIN, min(FPS_CLAMP_MAX, fps))
     else:
         fps = FPS_CLAMP_MIN
+    created_at_str = format_created_at_iso8601_utc()
     return WindowPayload(
         id=str(uuid.uuid4()),
-        created_at=datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        created_at=created_at_str,
         device_id=device_id,
         camera_id=camera_id,
         session_id=session_id,
