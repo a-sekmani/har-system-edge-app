@@ -12,7 +12,7 @@ HAR-System-Edge-App/
 │   ├── windows_client.py         # Phase 4: WindowsSender (HTTP POST), WindowsSendQueue
 │   ├── skeleton_exporter.py      # Dataset Export: COCO-17 keypoints to JSONL files
 │   ├── face/                     # Face recognition (gallery, recognizer, tracker binding)
-│   │   ├── gallery_client.py     # GET face-gallery and version from cloud
+│   │   ├── gallery_client.py     # GET face-gallery and updated_at (version endpoint) from cloud
 │   │   ├── gallery_store.py      # Load/save gallery cache
 │   │   ├── recognizer.py         # InsightFace detect + embedding + match
 │   │   ├── tracker_binding.py    # Bind face identity to pose track_id
@@ -45,7 +45,7 @@ HAR-System-Edge-App/
 │       └── test_tracker_binding.py
 ├── scripts/
 │   ├── request_face_gallery.py   # Request face gallery only; save to local cache
-│   └── check_cloud_gallery.py    # Request gallery version + full gallery; print summary
+│   └── check_cloud_gallery.py    # Request gallery updated_at + full gallery; print summary
 ├── docs/                         # Documentation (this folder)
 ├── test_phase0.py                # Phase 0 acceptance test
 ├── test_phase1.py                # Phase 1 acceptance test

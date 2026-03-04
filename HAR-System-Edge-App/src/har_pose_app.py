@@ -60,7 +60,7 @@ from src.windows_client import WindowsConfig, WindowsSender, WindowsSendQueue
 from src.skeleton_exporter import SkeletonExporter, extract_action_from_filename, write_summary_csv, ExportStats
 # Face recognition (optional)
 try:
-    from src.face.gallery_client import fetch_face_gallery, fetch_gallery_version
+    from src.face.gallery_client import fetch_face_gallery, fetch_gallery_updated_at
     from src.face.gallery_store import load_gallery as face_load_gallery, save_gallery as face_save_gallery
     from src.face.recognizer import FaceRecognizer
     from src.face.tracker_binding import TrackerBinding
@@ -695,34 +695,45 @@ def _init_face_recognition(user_data: HARUserData) -> None:
     api_key = opts.get("cloud_api_key", "")
     gallery_path = opts.get("cloud_face_gallery_path", "/v1/face-gallery")
     version_path = opts.get("cloud_face_gallery_version_path", "/v1/face-gallery/version")
+    # Always load local copy first; we never overwrite it unless we successfully fetch a newer updated_at from cloud.
     user_data.face_gallery = face_load_gallery(cache_dir)
     if user_data.face_gallery:
         hailo_logger.info(
-            "face gallery loaded from cache version=%s persons=%s embeddings=%s",
-            user_data.face_gallery.version,
+            "face gallery loaded from cache updated_at=%s persons=%s embeddings=%s",
+            user_data.face_gallery.updated_at or "(none)",
             len(user_data.face_gallery.persons),
             user_data.face_gallery.total_embeddings(),
         )
     if base_url:
         try:
-            remote_version = fetch_gallery_version(base_url, version_path, api_key, timeout_s)
-            if remote_version is not None:
-                if user_data.face_gallery is None or user_data.face_gallery.version != remote_version:
+            remote_updated_at = fetch_gallery_updated_at(base_url, version_path, api_key, timeout_s)
+            if remote_updated_at is None:
+                hailo_logger.warning(
+                    "face gallery updated_at fetch failed; keeping existing gallery (local copy unchanged)"
+                )
+            else:
+                local_updated_at = (user_data.face_gallery.updated_at or "").strip() if user_data.face_gallery else ""
+                # Update only when cloud has a newer date (ISO 8601 string comparison).
+                if local_updated_at and remote_updated_at <= local_updated_at:
+                    hailo_logger.info(
+                        "face gallery updated_at not newer than local (%s); no update needed",
+                        remote_updated_at,
+                    )
+                else:
                     gallery = fetch_face_gallery(base_url, gallery_path, api_key, timeout_s)
-                    if gallery:
+                    if gallery is not None:
                         user_data.face_gallery = gallery
                         face_save_gallery(cache_dir, gallery)
                         hailo_logger.info(
-                            "face gallery synced from cloud version=%s persons=%s embeddings=%s (saved to cache)",
-                            gallery.version, len(gallery.persons), gallery.total_embeddings(),
+                            "face gallery synced from cloud updated_at=%s persons=%s embeddings=%s (saved to cache)",
+                            gallery.updated_at or "(none)", len(gallery.persons), gallery.total_embeddings(),
                         )
-                else:
-                    hailo_logger.info(
-                        "face gallery version matches cloud (%s); using cached gallery",
-                        remote_version,
-                    )
+                    else:
+                        hailo_logger.warning(
+                            "face gallery fetch failed; keeping existing gallery (local copy unchanged)"
+                        )
         except Exception as e:
-            hailo_logger.warning("face gallery sync failed: %s", e)
+            hailo_logger.warning("face gallery sync failed: %s; keeping existing gallery (local copy unchanged)", e)
     else:
         hailo_logger.info(
             "Face recognition enabled but no gallery URL (set FACE_GALLERY_URL or CLOUD_URL or use --cloud-url); using cache only."
@@ -733,7 +744,11 @@ def _init_face_recognition(user_data: HARUserData) -> None:
 
 
 def _refresh_face_gallery_if_due(user_data: HARUserData) -> None:
-    """If refresh interval elapsed, check cloud version and optionally update gallery."""
+    """
+    If refresh interval (e.g. 1 minute) elapsed, check cloud updated_at.
+    Only update local gallery when we successfully fetch and remote updated_at is newer than local.
+    On any fetch failure, keep existing gallery unchanged.
+    """
     if not _FACE_AVAILABLE or not getattr(user_data, "enable_face", False):
         return
     opts = getattr(user_data, "_face_opts", None)
@@ -750,22 +765,27 @@ def _refresh_face_gallery_if_due(user_data: HARUserData) -> None:
     gallery_path = opts.get("cloud_face_gallery_path", "/v1/face-gallery")
     version_path = opts.get("cloud_face_gallery_version_path", "/v1/face-gallery/version")
     try:
-        remote_version = fetch_gallery_version(base_url, version_path, api_key, timeout_s)
-        if remote_version is None:
+        remote_updated_at = fetch_gallery_updated_at(base_url, version_path, api_key, timeout_s)
+        if remote_updated_at is None:
+            hailo_logger.debug("face gallery refresh: updated_at fetch failed; keeping existing gallery")
             user_data.face_gallery_next_refresh_ts = now + refresh_s
             return
-        current_version = user_data.face_gallery.version if user_data.face_gallery else ""
-        if remote_version != current_version:
-            gallery = fetch_face_gallery(base_url, gallery_path, api_key, timeout_s)
-            if gallery:
-                user_data.face_gallery = gallery
-                face_save_gallery(cache_dir, gallery)
-                hailo_logger.info(
-                    "face gallery refreshed version=%s persons=%s",
-                    gallery.version, len(gallery.persons),
-                )
+        local_updated_at = (user_data.face_gallery.updated_at or "").strip() if user_data.face_gallery else ""
+        if local_updated_at and remote_updated_at <= local_updated_at:
+            user_data.face_gallery_next_refresh_ts = now + refresh_s
+            return
+        gallery = fetch_face_gallery(base_url, gallery_path, api_key, timeout_s)
+        if gallery is not None:
+            user_data.face_gallery = gallery
+            face_save_gallery(cache_dir, gallery)
+            hailo_logger.info(
+                "face gallery refreshed from cloud updated_at=%s persons=%s (saved to cache)",
+                gallery.updated_at or "(none)", len(gallery.persons),
+            )
+        else:
+            hailo_logger.debug("face gallery refresh: gallery fetch failed; keeping existing gallery")
     except Exception as e:
-        hailo_logger.debug("face gallery refresh failed: %s", e)
+        hailo_logger.debug("face gallery refresh failed: %s; keeping existing gallery", e)
     user_data.face_gallery_next_refresh_ts = now + refresh_s
 
 

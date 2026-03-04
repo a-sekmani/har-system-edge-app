@@ -10,7 +10,7 @@ Quick reference. See phase and feature docs for details.
 
 **Windows:** --window-size, --window-stride, --window-max-buffers, --max-windows-queue-size (default 500), --windows-drop-policy, --window-attach-person
 
-**Face:** --enable-face, --face-gallery-url, --face-gallery-cache, --face-det-size default 256, --face-max-faces default 1, --face-skip-frames default 10, and related face options
+**Face:** --enable-face, --face-gallery-url, --face-gallery-cache (local copy; sync from cloud when cloud updated_at is newer), --face-det-size default 256, --face-max-faces default 1, --face-skip-frames default 10, and related face options. See [Face recognition](face-recognition.md) for sync behavior (updated_at only, never overwrite on failure).
 
 **Dataset export:** --export-skeleton, --video-dir, --export-out, --export-format, --max-videos, --skip-existing
 

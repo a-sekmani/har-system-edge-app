@@ -24,7 +24,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 import logging
 logging.getLogger("src.face.gallery_client").setLevel(logging.ERROR)
 
-from src.face.gallery_client import fetch_face_gallery, fetch_gallery_version
+from src.face.gallery_client import fetch_face_gallery, fetch_gallery_updated_at
 from src.face.gallery_store import save_gallery
 
 DEFAULT_BASE_URL = "http://192.168.1.106:8000"
@@ -48,13 +48,13 @@ def main():
     print(f"Base URL:   {base_url}")
     print(f"Cache dir:  {cache_dir}\n")
 
-    # 1) Fetch gallery version
-    print("[1] GET gallery version...")
-    version = fetch_gallery_version(base_url, VERSION_PATH, api_key, TIMEOUT_S)
-    if version is None:
-        print("    Failed to fetch version.\n")
+    # 1) Fetch gallery updated_at from version endpoint
+    print("[1] GET gallery updated_at...")
+    updated_at = fetch_gallery_updated_at(base_url, VERSION_PATH, api_key, TIMEOUT_S)
+    if updated_at is None:
+        print("    Failed to fetch updated_at.\n")
         sys.exit(1)
-    print(f"    -> version = {version}\n")
+    print(f"    -> updated_at = {updated_at}\n")
 
     # 2) Fetch full gallery
     print("[2] GET full gallery...")
