@@ -43,15 +43,16 @@ HAR-System-Edge-App/
 │       ├── test_gallery_store.py
 │       ├── test_recognizer_match.py
 │       └── test_tracker_binding.py
+├── acceptance_tests/             # Acceptance test scripts (run from project root)
+│   ├── test_phase0.py            # Phase 0 acceptance test
+│   ├── test_phase1.py            # Phase 1 acceptance test
+│   ├── test_phase2.py            # Phase 2 acceptance test
+│   ├── test_phase3.py            # Phase 3 acceptance test
+│   └── test_phase4.py            # Phase 4 acceptance test
 ├── scripts/
 │   ├── request_face_gallery.py   # Request face gallery only; save to local cache
 │   └── check_cloud_gallery.py    # Request gallery updated_at + full gallery; print summary
 ├── docs/                         # Documentation (this folder)
-├── test_phase0.py                # Phase 0 acceptance test
-├── test_phase1.py                # Phase 1 acceptance test
-├── test_phase2.py                # Phase 2 acceptance test
-├── test_phase3.py                # Phase 3 acceptance test
-├── test_phase4.py                # Phase 4 acceptance test
 ├── tools/
 │   └── mock_cloud_server.py      # Mock HTTP server for E2E (Phase 3/4)
 ├── pytest.ini

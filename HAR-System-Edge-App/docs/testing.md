@@ -15,11 +15,11 @@ Or from repository root: `pytest HAR-System-Edge-App/tests/ -v`
 
 ## Acceptance tests
 
-- **Phase 0:** `python test_phase0.py` - baseline run
-- **Phase 1:** `python test_phase1.py` - 30 s, parse counters, PASS/FAIL (frame_events, invalid_*, frames_with_persons, frames_with_landmarks, keypoints_len_not_17)
-- **Phase 2:** `python test_phase2.py` - 30 s, fallback tracking, single-person criteria (unique_track_ids, id_switch_suspected)
-- **Phase 3:** `python test_phase3.py` - enable_cloud false, dry-run, send_every_n_frames, local HTTP sink, invalid URL
-- **Phase 4:** `python test_phase4.py` - dry-run, local HTTP sink (windows_sent, keypoints shape), invalid URL
+- **Phase 0:** `python acceptance_tests/test_phase0.py` - baseline run
+- **Phase 1:** `python acceptance_tests/test_phase1.py` - 30 s, parse counters, PASS/FAIL (frame_events, invalid_*, frames_with_persons, frames_with_landmarks, keypoints_len_not_17)
+- **Phase 2:** `python acceptance_tests/test_phase2.py` - 30 s, fallback tracking, single-person criteria (unique_track_ids, id_switch_suspected)
+- **Phase 3:** `python acceptance_tests/test_phase3.py` - enable_cloud false, dry-run, send_every_n_frames, local HTTP sink, invalid URL
+- **Phase 4:** `python acceptance_tests/test_phase4.py` - dry-run, local HTTP sink (windows_sent, keypoints shape), invalid URL
 
 ## Acceptance criteria summary
 

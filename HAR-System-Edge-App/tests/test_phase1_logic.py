@@ -1,20 +1,23 @@
 """
 Unit tests for Phase 1 acceptance script logic: parse_counters and check_phase1_conditions.
-Uses test_phase1 module from project root (HAR-System-Edge-App).
+Uses test_phase1 module from acceptance_tests/.
 """
 import sys
 from pathlib import Path
 
 import pytest
 
-# Ensure project root (parent of tests/) is on path so we can import test_phase1 script
+# Project root and acceptance_tests so we can import test_phase1
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+_ACCEPTANCE_DIR = _REPO_ROOT / "acceptance_tests"
+if str(_ACCEPTANCE_DIR) not in sys.path:
+    sys.path.insert(0, str(_ACCEPTANCE_DIR))
 
 
 def _get_phase1_module():
-    """Import test_phase1 module (script in project root)."""
+    """Import test_phase1 module (acceptance_tests/test_phase1.py)."""
     try:
         import test_phase1 as m
         return m

@@ -16,6 +16,8 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 
 def run_app_phase4(
     duration_sec=30,
@@ -42,10 +44,9 @@ def run_app_phase4(
         cmd.extend(["--cloud-url", cloud_url])
     if max_windows_queue_size is not None:
         cmd.extend(["--max-windows-queue-size", str(max_windows_queue_size)])
-    cwd = Path(__file__).parent
     process = subprocess.Popen(
         cmd,
-        cwd=cwd,
+        cwd=_PROJECT_ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -136,7 +137,7 @@ def main():
     print("Phase 4 Acceptance Test")
     print("=" * 60)
 
-    if not Path("src/har_pose_app.py").exists():
+    if not (_PROJECT_ROOT / "src" / "har_pose_app.py").exists():
         print("[FAIL] src/har_pose_app.py not found. Run from HAR-System-Edge-App directory.")
         sys.exit(1)
 

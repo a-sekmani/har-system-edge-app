@@ -1,6 +1,6 @@
 """
 Unit tests for Phase 4 parse_counters: windows_built, windows_sent, windows_failed, windows_dropped, windows_queue_depth_max.
-Uses test_phase4 module (script in project root).
+Uses test_phase4 module from acceptance_tests/.
 """
 import sys
 from pathlib import Path
@@ -10,10 +10,13 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
+_ACCEPTANCE_DIR = _REPO_ROOT / "acceptance_tests"
+if str(_ACCEPTANCE_DIR) not in sys.path:
+    sys.path.insert(0, str(_ACCEPTANCE_DIR))
 
 
 def _get_phase4_module():
-    """Import test_phase4 module (script in project root)."""
+    """Import test_phase4 module (acceptance_tests/test_phase4.py)."""
     try:
         import test_phase4 as m
         return m

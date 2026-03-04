@@ -36,12 +36,12 @@ python src/har_pose_app.py --input rpi --no-display --show-fps
 ```bash
 python src/har_pose_app.py --input rpi --no-display \
   --enable-cloud --cloud-mode windows --enable-face \
-  --cloud-url http://192.168.1.106:8000 --cloud-api-key dev-key
+  --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key
 ```
 
 ## Acceptance tests
 
-From `HAR-System-Edge-App`: `python test_phase0.py`, `python test_phase1.py`, `python test_phase2.py`, `python test_phase3.py`, `python test_phase4.py`. See [docs/testing.md](docs/testing.md).
+From `HAR-System-Edge-App`: `python acceptance_tests/test_phase0.py`, `python acceptance_tests/test_phase1.py`, `python acceptance_tests/test_phase2.py`, `python acceptance_tests/test_phase3.py`, `python acceptance_tests/test_phase4.py`. See [docs/testing.md](docs/testing.md).
 
 ## Unit tests
 

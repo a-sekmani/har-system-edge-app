@@ -12,6 +12,8 @@ import sys
 import time
 from pathlib import Path
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 MIN_PERSON_FRAMES = 30
 
 
@@ -24,10 +26,9 @@ def run_app_and_capture(duration_sec=30, input_source="rpi"):
         "--no-display",
         "--show-fps",
     ]
-    cwd = Path(__file__).parent
     process = subprocess.Popen(
         cmd,
-        cwd=cwd,
+        cwd=_PROJECT_ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -131,7 +132,7 @@ def main():
     print("Phase 1 Acceptance Test")
     print("=" * 60)
 
-    if not Path("src/har_pose_app.py").exists():
+    if not (_PROJECT_ROOT / "src" / "har_pose_app.py").exists():
         print("[FAIL] src/har_pose_app.py not found. Run from HAR-System-Edge-App directory.")
         sys.exit(1)
 

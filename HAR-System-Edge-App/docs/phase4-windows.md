@@ -24,13 +24,13 @@ windows_built, windows_sent, windows_failed, windows_dropped, windows_queue_dept
 ```bash
 python src/har_pose_app.py --input rpi --no-display \
   --enable-cloud --cloud-mode windows \
-  --cloud-url http://192.168.1.106:8000 --cloud-api-key dev-key
+  --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key
 ```
 
 ## Acceptance test
 
 ```bash
-python test_phase4.py
+python acceptance_tests/test_phase4.py
 ```
 
 (1) Dry-run: windows_built > 0, windows_sent == 0; (2) Local HTTP sink: windows_sent > 0, keypoints [30][17][3]; (3) Invalid URL: windows_failed > 0.

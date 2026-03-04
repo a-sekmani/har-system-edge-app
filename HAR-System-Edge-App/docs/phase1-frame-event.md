@@ -12,7 +12,7 @@ The app produces one **FrameEvent** per frame: frame number, timestamp, image si
 ## Acceptance test
 
 ```bash
-python test_phase1.py
+python acceptance_tests/test_phase1.py
 ```
 
 The script runs the app with `--no-display` for 30 seconds, parses counters from the log, and exits 0 (PASS) or 1 (FAIL). One person in view is recommended.

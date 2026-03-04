@@ -17,7 +17,7 @@ With --enable-face, the app can fetch a face gallery from the cloud, run face de
 ## Example
 
 ```bash
-python src/har_pose_app.py --input rpi --no-display --enable-cloud --cloud-mode windows --enable-face --cloud-url http://192.168.1.106:8000 --cloud-api-key dev-key --window-attach-person auto
+python src/har_pose_app.py --input rpi --no-display --enable-cloud --cloud-mode windows --enable-face --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key --window-attach-person auto
 ```
 
 **Debug:** --log-face-summary; last window in /tmp/last_window.json.

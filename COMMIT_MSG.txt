@@ -1,0 +1,13 @@
+Move acceptance tests into acceptance_tests/ and update docs
+
+- Add acceptance_tests/ folder and move test_phase0.py through test_phase4.py
+  from project root into it
+- In each moved script: set _PROJECT_ROOT and use it for subprocess cwd and
+  for checking src/har_pose_app.py existence so tests run correctly from
+  the new location
+- In tests/test_phase1_logic.py, test_phase2_logic.py, test_phase4_logic.py:
+  add acceptance_tests to sys.path so imports of test_phase1/2/4 still work
+- Update README, docs/testing.md, docs/structure.md, and phase0–phase4 docs
+  to run acceptance tests via python acceptance_tests/test_phaseN.py
+- Update default cloud URL in docs from 192.168.1.106:8000 to 192.168.1.105:8000
+  (README, phase4-windows, face-recognition, scripts)

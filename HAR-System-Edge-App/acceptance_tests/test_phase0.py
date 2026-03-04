@@ -10,8 +10,10 @@ import time
 import os
 from pathlib import Path
 
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
 # Add parent directory to path to access hailo-apps
-sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(_PROJECT_ROOT.parent))
 
 
 def test_with_display():
@@ -34,7 +36,7 @@ def test_with_display():
     try:
         process = subprocess.Popen(
             cmd,
-            cwd=Path(__file__).parent,
+            cwd=_PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -88,7 +90,7 @@ def test_without_display():
     try:
         process = subprocess.Popen(
             cmd,
-            cwd=Path(__file__).parent,
+            cwd=_PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -143,7 +145,7 @@ def test_long_run():
     try:
         process = subprocess.Popen(
             cmd,
-            cwd=Path(__file__).parent,
+            cwd=_PROJECT_ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -189,7 +191,7 @@ def main():
     print()
 
     # Check if we're in the right directory
-    if not Path("src/har_pose_app.py").exists():
+    if not (_PROJECT_ROOT / "src" / "har_pose_app.py").exists():
         print("[FAIL] src/har_pose_app.py not found")
         print("       Run this script from the HAR-System-Edge-App directory")
         sys.exit(1)

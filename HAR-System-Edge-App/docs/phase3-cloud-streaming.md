@@ -34,7 +34,7 @@ events_built, events_sent, events_failed, events_dropped, queue_depth, queue_dep
 ## Acceptance test
 
 ```bash
-python test_phase3.py
+python acceptance_tests/test_phase3.py
 ```
 
 Checks: (1) enable_cloud false → Phase 3 counters zero; (2) dry-run criteria; (3) send_every_n_frames=2; (4) local HTTP sink; (5) invalid URL → events_failed > 0.

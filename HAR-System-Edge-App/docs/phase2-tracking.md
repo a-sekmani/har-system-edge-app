@@ -35,7 +35,7 @@ Before tracking, detections can be filtered: `--min-bbox-area A`, `--min-bbox-he
 ## Acceptance test
 
 ```bash
-python test_phase2.py
+python acceptance_tests/test_phase2.py
 ```
 
 Runs with `--no-display` and `--tracking-source fallback` for 30 seconds. Single-person criteria: frame_events >= 95% of total_frames, invalid_caps/validate == 0, frames_with_persons >= 30, unique_track_ids <= 2, id_switch_suspected == 0.
