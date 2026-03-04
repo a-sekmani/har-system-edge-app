@@ -11,7 +11,7 @@ python scripts/request_face_gallery.py [base_url]
 # Or: CLOUD_URL=http://... python scripts/request_face_gallery.py
 ```
 
-Defaults: base_url from env FACE_GALLERY_URL or CLOUD_URL or http://192.168.1.105:8000; cache dir from env FACE_GALLERY_CACHE or /var/lib/har/face_gallery/.
+Defaults: base_url from env FACE_GALLERY_URL or CLOUD_URL or http://192.168.1.105:8000; gallery dir from env FACE_GALLERY_CACHE or project `face_gallery/` (persistent; updated from cloud only when cloud updated_at is newer).
 
 ## check_cloud_gallery.py
 

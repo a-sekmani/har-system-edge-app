@@ -31,11 +31,12 @@ source ../venv_hailo_apps/bin/activate   # or your venv
 python src/har_pose_app.py --input rpi --no-display --show-fps
 ```
 
-**With cloud windows and face recognition:**
+**With cloud windows and face recognition (required: `--enable-face` to recognize persons):**
 
 ```bash
-python src/har_pose_app.py --input rpi --no-display \
-  --enable-cloud --cloud-mode windows --enable-face \
+python src/har_pose_app.py --input rpi --no-display --show-fps \
+  --enable-cloud --cloud-mode windows \
+  --enable-face --face-gallery-url http://192.168.1.105:8000 \
   --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key
 ```
 

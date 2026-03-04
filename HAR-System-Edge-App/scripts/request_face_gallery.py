@@ -27,8 +27,9 @@ logging.getLogger("src.face.gallery_client").setLevel(logging.ERROR)
 from src.face.gallery_client import fetch_face_gallery, fetch_gallery_updated_at
 from src.face.gallery_store import save_gallery
 
-DEFAULT_BASE_URL = "http://192.168.1.106:8000"
-DEFAULT_CACHE_DIR = "/var/lib/har/face_gallery/"
+DEFAULT_BASE_URL = "http://192.168.1.105:8000"
+# Persistent gallery directory inside the project (same as app default)
+DEFAULT_CACHE_DIR = str(_PROJECT_ROOT / "face_gallery")
 VERSION_PATH = "/v1/face-gallery/version"
 GALLERY_PATH = "/v1/face-gallery"
 TIMEOUT_S = 10.0

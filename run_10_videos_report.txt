@@ -1,0 +1,33 @@
+============================================================
+Report: 10 random NTU videos run with cloud upload
+============================================================
+Library: /home/admin/Desktop/ntu_filtered_by_action
+Cloud: http://192.168.1.105:8000
+Videos selected: 10
+
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A002/S016C002P019R001A002_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A001/S008C002P033R002A001_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A011/S013C002P008R001A011_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A011/S005C003P016R001A011_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A009/S015C001P008R002A009_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A008/S008C002P007R001A008_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A002/S013C002P028R002A002_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A048/S008C002P030R002A048_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A002/S009C003P015R001A002_rgb.avi
+  [OK] /home/admin/Desktop/ntu_filtered_by_action/A045/S006C003P016R001A045_rgb.avi
+
+============================================================
+Summary: 10 of 10 succeeded
+============================================================
+
+Files that were run:
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S016C002P019R001A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A001/S008C002P033R002A001_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A011/S013C002P008R001A011_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A011/S005C003P016R001A011_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A009/S015C001P008R002A009_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A008/S008C002P007R001A008_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S013C002P028R002A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S008C002P030R002A048_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S009C003P015R001A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A045/S006C003P016R001A045_rgb.avi

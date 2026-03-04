@@ -40,7 +40,7 @@ class FaceRecognizer:
         det_size: int = 320,
         max_faces: int = 5,
         min_det_conf: float = 0.6,
-        sim_threshold: float = 0.35,
+        sim_threshold: float = 0.45,
     ):
         self.det_size = max(160, min(640, det_size))
         self.max_faces = max(1, max_faces)

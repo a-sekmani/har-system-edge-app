@@ -19,6 +19,8 @@ from typing import Any
 # Ensure project root (parent of src) is on path for "from src.frame_event import ..."
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _PROJECT_ROOT = _SCRIPT_DIR.parent
+# Persistent face gallery storage inside the project (load first; update from cloud only when cloud updated_at is newer)
+DEFAULT_FACE_GALLERY_DIR = (_PROJECT_ROOT / "face_gallery").as_posix()
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
@@ -369,9 +371,9 @@ def get_har_parser():
     parser.add_argument(
         "--face-gallery-cache",
         type=str,
-        default="/var/lib/har/face_gallery/",
+        default=DEFAULT_FACE_GALLERY_DIR,
         metavar="PATH",
-        help="Local cache directory for face gallery (default: /var/lib/har/face_gallery/).",
+        help="Persistent face gallery directory inside the project (default: <app_dir>/face_gallery). Loaded first; updated from cloud only when cloud updated_at is newer.",
     )
     parser.add_argument(
         "--face-gallery-refresh-s",
@@ -410,9 +412,9 @@ def get_har_parser():
     parser.add_argument(
         "--face-sim-threshold",
         type=float,
-        default=0.35,
+        default=0.45,
         metavar="X",
-        help="Min similarity (or 1 - distance) to accept a match (default: 0.35).",
+        help="Min similarity (or 1 - distance) to accept a match (default: 0.45).",
     )
     parser.add_argument(
         "--face-min-det-conf",
@@ -741,6 +743,8 @@ def _init_face_recognition(user_data: HARUserData) -> None:
     if user_data.face_gallery is None:
         hailo_logger.info("face gallery empty; recognition will run but all matches unknown")
     user_data.face_gallery_next_refresh_ts = time.time() + refresh_s
+    # Log gallery path and cwd so operator can confirm (gallery path is absolute, does not depend on cwd)
+    hailo_logger.info("face gallery dir=%s cwd=%s", cache_dir, os.getcwd())
 
 
 def _refresh_face_gallery_if_due(user_data: HARUserData) -> None:
@@ -1577,6 +1581,12 @@ def process_single_video_export(video_path, output_path, action_id, export_forma
 def main():
     """Application main entry point."""
     hailo_logger.info("Starting HAR Pose Estimation App...")
+    # Set working directory to project root so face_gallery and other project paths are used consistently
+    try:
+        os.chdir(_PROJECT_ROOT)
+        hailo_logger.info("Working directory set to project root: %s", os.getcwd())
+    except OSError as e:
+        hailo_logger.warning("Could not set working directory to %s: %s", _PROJECT_ROOT, e)
 
     import argparse
     temp_parser = argparse.ArgumentParser(add_help=False)
@@ -1716,7 +1726,7 @@ def main():
         user_data._face_opts = {
             "cloud_face_gallery_path": getattr(opts, "cloud_face_gallery_path", "/v1/face-gallery") or "/v1/face-gallery",
             "cloud_face_gallery_version_path": getattr(opts, "cloud_face_gallery_version_path", "/v1/face-gallery/version") or "/v1/face-gallery/version",
-            "face_gallery_cache": getattr(opts, "face_gallery_cache", "/var/lib/har/face_gallery/") or "/var/lib/har/face_gallery/",
+            "face_gallery_cache": getattr(opts, "face_gallery_cache", DEFAULT_FACE_GALLERY_DIR) or DEFAULT_FACE_GALLERY_DIR,
             "face_gallery_refresh_s": max(1.0, float(getattr(opts, "face_gallery_refresh_s", 60))),
             "face_gallery_timeout_s": max(1.0, float(getattr(opts, "face_gallery_timeout_s", 5))),
             "face_model": getattr(opts, "face_model", "insightface") or "insightface",
@@ -1724,7 +1734,7 @@ def main():
             "face_det_size": max(160, int(getattr(opts, "face_det_size", 256))),
             # Default 1 for better FPS when a single person is present
             "face_max_faces": max(1, int(getattr(opts, "face_max_faces", 1))),
-            "face_sim_threshold": float(getattr(opts, "face_sim_threshold", 0.35)),
+            "face_sim_threshold": float(getattr(opts, "face_sim_threshold", 0.45)),
             "face_min_det_conf": float(getattr(opts, "face_min_det_conf", 0.6)),
             # Run face recognition every 10 frames by default to improve FPS
             "face_skip_frames": max(1, int(getattr(opts, "face_skip_frames", 10))),

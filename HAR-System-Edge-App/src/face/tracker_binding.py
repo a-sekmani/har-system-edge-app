@@ -31,6 +31,15 @@ def _iou_bbox(a: Tuple[float, float, float, float], b: Tuple[float, float, float
     return inter / union if union > 0 else 0.0
 
 
+def _face_center_in_pose(face_bbox: Tuple[float, float, float, float], pose_bbox: Tuple[float, float, float, float]) -> bool:
+    """True if the center of the face bbox lies inside the pose bbox (body contains face)."""
+    fx1, fy1, fx2, fy2 = face_bbox
+    px1, py1, px2, py2 = pose_bbox
+    cx = (fx1 + fx2) * 0.5
+    cy = (fy1 + fy2) * 0.5
+    return px1 <= cx <= px2 and py1 <= cy <= py2
+
+
 class TrackerBinding:
     """
     Maps pose track_id to FaceIdentity. Updated each frame from pose bboxes and face detections + matches.
@@ -42,7 +51,7 @@ class TrackerBinding:
         iou_threshold: float = DEFAULT_IOU_THRESHOLD,
         track_ttl_s: float = 10.0,
         recheck_every_s: float = 2.0,
-        sim_threshold: float = 0.35,
+        sim_threshold: float = 0.45,
         min_votes_stable: int = 2,
     ):
         self.iou_threshold = iou_threshold
@@ -66,7 +75,7 @@ class TrackerBinding:
         """
         if now_ts is None:
             now_ts = time.time()
-        # For each face, find best pose by IoU
+        # For each face, find best pose: first by IoU; if none (face small inside body), by face center inside pose bbox
         for face_det, match_result in face_detections:
             face_bbox = face_det.bbox_xyxy
             best_track_id: Optional[int] = None
@@ -76,6 +85,11 @@ class TrackerBinding:
                 if iou > best_iou:
                     best_iou = iou
                     best_track_id = track_id
+            if best_track_id is None:
+                for track_id, pose_bbox in pose_detections:
+                    if _face_center_in_pose(face_bbox, pose_bbox):
+                        best_track_id = track_id
+                        break
             if best_track_id is None:
                 continue
             # Update identity for this track
