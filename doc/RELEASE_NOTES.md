@@ -49,7 +49,7 @@ The camera feed is processed in real time, and the AI maintains conversational c
 
 ## 🎯 CLIP Zero-Shot Classification
 
-Classify images without training a custom model. Just describe what you're looking for in plain English.
+Classify images without training a custom model. Just describe what you're looking for in plain language.
 
 **How it works:**
 

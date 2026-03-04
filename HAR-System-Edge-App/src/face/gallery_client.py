@@ -27,7 +27,7 @@ def _build_request(
     return req
 
 
-def fetch_gallery_version(
+def fetch_gallery_updated_at(
     base_url: str,
     version_path: str,
     api_key: str = "",
@@ -36,26 +36,27 @@ def fetch_gallery_version(
 ) -> Optional[str]:
     """
     GET /v1/face-gallery/version (or custom path).
-    Cloud returns version (e.g. "v12") and created_at.
-    Returns version string if response is valid, else None.
+    Cloud returns updated_at (ISO 8601). Used to decide if local gallery should be updated.
+    Returns updated_at string if response is valid, else None. Empty string is returned as None.
     """
     url = base_url.rstrip("/") + (version_path if version_path.startswith("/") else "/" + version_path)
     try:
         req = _build_request(url, api_key, timeout_sec, verify_tls)
         with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
             if resp.status != 200:
-                _LOG.warning("face gallery version GET status=%s", resp.status)
+                _LOG.warning("face gallery updated_at GET status=%s", resp.status)
                 return None
             data = json.loads(resp.read().decode("utf-8"))
-            v = data.get("version")
-            if v is None:
+            raw = data.get("updated_at", data.get("created_at"))
+            if raw is None:
                 return None
-            return str(v)
+            s = str(raw).strip()
+            return s if s else None
     except urllib.error.URLError as e:
-        _LOG.warning("face gallery version fetch failed: %s", e)
+        _LOG.warning("face gallery updated_at fetch failed: %s", e)
         return None
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as e:
-        _LOG.warning("face gallery version parse error: %s", e)
+        _LOG.warning("face gallery updated_at parse error: %s", e)
         return None
 
 

@@ -2,7 +2,7 @@
 
 ## request_face_gallery.py
 
-Fetches gallery version and full gallery from the cloud and saves to local cache. Does not start the camera or the main app.
+Fetches gallery **updated_at** from the version endpoint (GET .../v1/face-gallery/version; cloud returns updated_at, ISO 8601) and the full gallery from the cloud, then saves to local cache. Does not start the camera or the main app.
 
 ```bash
 cd HAR-System-Edge-App
@@ -15,7 +15,7 @@ Defaults: base_url from env FACE_GALLERY_URL or CLOUD_URL or http://192.168.1.10
 
 ## check_cloud_gallery.py
 
-Requests face gallery version and full gallery from the cloud and prints a summary. Does not write to cache.
+Requests face gallery **updated_at** (from the version endpoint) and full gallery from the cloud and prints a summary. Does not write to cache.
 
 ```bash
 python scripts/check_cloud_gallery.py [base_url] [api_key]

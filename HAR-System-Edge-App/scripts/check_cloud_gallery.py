@@ -20,7 +20,7 @@ def main():
     print(f"Base URL: {base_url}")
     print(f"API Key:  {api_key}\n")
 
-    # 1) Version
+    # 1) Version endpoint (returns updated_at for update decision)
     version_url = base_url + version_path
     print(f"[1] GET {version_url}")
     try:
@@ -33,9 +33,8 @@ def main():
             data = json.loads(body)
             print(f"    Status: {resp.status}")
             print(f"    Response: {json.dumps(data, ensure_ascii=False, indent=2)}")
-            version = data.get("version")
-            created_at = data.get("created_at")
-            print(f"    → version = {version}, created_at = {created_at}\n")
+            updated_at = data.get("updated_at", data.get("created_at"))
+            print(f"    → updated_at = {updated_at} (used for gallery update decision)\n")
     except urllib.error.URLError as e:
         print(f"    Error: {e}\n")
         return

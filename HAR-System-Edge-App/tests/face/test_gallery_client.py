@@ -1,33 +1,45 @@
-"""Unit tests for face gallery_client: fetch_gallery_version, fetch_face_gallery (with mocked HTTP)."""
+"""Unit tests for face gallery_client: fetch_gallery_updated_at, fetch_face_gallery (with mocked HTTP)."""
 
 import json
 import pytest
 from unittest.mock import patch, MagicMock
 
-from src.face.gallery_client import fetch_gallery_version, fetch_face_gallery
+from src.face.gallery_client import fetch_gallery_updated_at, fetch_face_gallery
 from src.face.schemas import FaceGallery
 
 
-def test_fetch_gallery_version_success():
+def test_fetch_gallery_updated_at_success():
     with patch("urllib.request.urlopen") as mock_open:
         mock_resp = MagicMock()
         mock_resp.status = 200
-        mock_resp.read.return_value = json.dumps({"version": "v12"}).encode("utf-8")
+        mock_resp.read.return_value = json.dumps({"updated_at": "2026-03-04T12:00:00Z"}).encode("utf-8")
         mock_resp.__enter__ = lambda self: self
         mock_resp.__exit__ = lambda *a: None
         mock_open.return_value = mock_resp
-        out = fetch_gallery_version("http://localhost:8000", "/v1/face-gallery/version", timeout_sec=2.0)
-    assert out == "v12"
+        out = fetch_gallery_updated_at("http://localhost:8000", "/v1/face-gallery/version", timeout_sec=2.0)
+    assert out == "2026-03-04T12:00:00Z"
 
 
-def test_fetch_gallery_version_non_200():
+def test_fetch_gallery_updated_at_accepts_created_at():
+    with patch("urllib.request.urlopen") as mock_open:
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({"created_at": "2026-03-03T10:00:00Z"}).encode("utf-8")
+        mock_resp.__enter__ = lambda self: self
+        mock_resp.__exit__ = lambda *a: None
+        mock_open.return_value = mock_resp
+        out = fetch_gallery_updated_at("http://localhost:8000", "/v1/face-gallery/version", timeout_sec=2.0)
+    assert out == "2026-03-03T10:00:00Z"
+
+
+def test_fetch_gallery_updated_at_non_200():
     with patch("urllib.request.urlopen") as mock_open:
         mock_resp = MagicMock()
         mock_resp.status = 404
         mock_resp.__enter__ = lambda self: self
         mock_resp.__exit__ = lambda *a: None
         mock_open.return_value = mock_resp
-        out = fetch_gallery_version("http://localhost:8000", "/v1/face-gallery/version", timeout_sec=2.0)
+        out = fetch_gallery_updated_at("http://localhost:8000", "/v1/face-gallery/version", timeout_sec=2.0)
     assert out is None
 
 
@@ -54,6 +66,7 @@ def test_fetch_face_gallery_success():
     assert out is not None
     assert isinstance(out, FaceGallery)
     assert out.version == "v12"
+    assert out.updated_at == "2026-03-02T10:00:00Z"
     assert out.threshold == 0.45
     assert out.embedding_dim == 512
     assert len(out.persons) == 2
