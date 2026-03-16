@@ -58,7 +58,6 @@ HAR-System-Edge-App/
 ├── tools/
 │   └── mock_cloud_server.py      # Mock HTTP server for E2E (Phase 3/4)
 ├── pytest.ini
-├── README.md
 └── requirements.txt
 ```
 

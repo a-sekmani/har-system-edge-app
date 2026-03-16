@@ -6,9 +6,9 @@ Quick reference. See phase and feature docs for details.
 
 **Tracking:** --tracking-source, --max-missing-frames, --iou-threshold, --min-bbox-area, --min-bbox-height, --min-pose-confidence, --log-tracking-summary
 
-**Cloud:** --enable-cloud, --cloud-url, --cloud-api-key, --cloud-mode, --cloud-ingest-path, --cloud-windows-path, --send-every-n-frames, --max-queue-size, --send-timeout-ms, --max-retries, --drop-policy, --dry-run, --verify-tls, --no-verify-tls
+**Cloud:** --enable-cloud, --cloud-url, --cloud-api-key, --cloud-mode, --cloud-ingest-path, --cloud-windows-path, --send-every-n-frames, --max-queue-size, --send-timeout-ms, --max-retries, --drop-policy, --dry-run, --no-verify-tls (TLS verification on by default)
 
-**Windows:** --window-size, --window-stride, --window-max-buffers, --max-windows-queue-size (default 500), --windows-drop-policy, --window-attach-person
+**Windows:** --window-size, --window-stride, --window-max-buffers, --max-windows-queue-size (default 500), --windows-drop-policy, --window-attach-person, --normalize-keypoints (default true)
 
 **Face:** --enable-face, --face-gallery-url, --face-gallery-cache (persistent gallery dir; default: project `face_gallery/`; sync from cloud only when cloud updated_at is newer), --face-det-size default 256, --face-max-faces default 1, --face-skip-frames default 10, and related face options. See [Face recognition](face-recognition.md) for sync behavior (updated_at only, never overwrite on failure).
 

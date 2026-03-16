@@ -29,7 +29,7 @@ events_built, events_sent, events_failed, events_dropped, queue_depth, queue_dep
 
 ## CLI flags (Phase 3)
 
---enable-cloud, --cloud-url, --cloud-api-key, --cloud-ingest-path (default /v1/edge/events), --send-every-n-frames (default 1), --max-queue-size (default 1000), --send-timeout-ms (default 5000), --max-retries (default 2), --drop-policy (default oldest), --dry-run, --verify-tls / --no-verify-tls.
+--enable-cloud, --cloud-url, --cloud-api-key, --cloud-ingest-path (default /v1/edge/events), --send-every-n-frames (default 1), --max-queue-size (default 1000), --send-timeout-ms (default 5000), --max-retries (default 2), --drop-policy (default oldest), --dry-run, --no-verify-tls (TLS verification on by default).
 
 ## Acceptance test
 
