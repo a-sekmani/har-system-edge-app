@@ -2,14 +2,20 @@
 
 ## Unit tests (pytest)
 
-From HAR-System-Edge-App (parent directory must provide hailo_apps on PYTHONPATH):
+From **HAR-System-Edge-App** (ensure repo root is on `PYTHONPATH` so hailo_apps and app imports resolve; e.g. run `source setup_env.sh` from repo root first):
 
 ```bash
 cd HAR-System-Edge-App
 pytest tests/ -v
 ```
 
-Or from repository root: `pytest HAR-System-Edge-App/tests/ -v`
+Or from repository root (set `PYTHONPATH` to include `HAR-System-Edge-App` so `src` imports work):
+
+```bash
+cd /path/to/har-system-edge-app-v0.2
+export PYTHONPATH="${PWD}/HAR-System-Edge-App:${PWD}"
+pytest HAR-System-Edge-App/tests/ -v
+```
 
 **Coverage:** test_parser (parser and Phase 2/Face flags), test_fps_tracker, test_har_user_data, test_callback, test_har_pose_app, test_frame_event, test_pose_extraction, test_validation, test_phase1_logic (parse_counters, FPS Person line), test_tracker, test_phase2_logic, test_cloud_schema, test_cloud_client, test_window_schema (keypoints_to_17x3_normalized pad/sentinel, WindowPayload, created_at ISO 8601, fps clamp, to_dict int rounding), test_window_assembler (non-overlap, per-track, eviction, empty persons, two persons per event, image missing dimensions), test_windows_client (WindowsConfig, WindowsSender URL/send, WindowsSendQueue drop policy and counters), test_phase4_logic, test_phase_face_fps_windows (face worker, gallery URL, enable-face, FPS Person), tests/face (gallery_client: fetch_gallery_updated_at and fetch_face_gallery; gallery_store, recognizer_match, tracker_binding).
 

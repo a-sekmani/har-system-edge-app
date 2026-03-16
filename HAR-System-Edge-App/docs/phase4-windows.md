@@ -8,12 +8,13 @@ Phase 4 sends sliding windows of keypoints (30 frames per track) as a single pay
 - **created_at**: Single date-time in ISO 8601 with timezone. Format: YYYY-MM-DDTHH:mm:ss[.sss](Z|+00:00|±HH:mm). The edge uses UTC with Z and 3 decimal places (e.g. 2026-02-24T11:32:05.123Z), generated at window creation/send time so the cloud shows correct Date and Time in Recent Windows.
 - **device_id**, **camera_id**, **session_id**, **track_id**, **ts_start_ms**, **ts_end_ms**, **fps**, **window_size**
 - **keypoints**: [T][17][3] — T frames, 17 COCO keypoints, 3 values (x, y, confidence) normalized to [0,1]. Missing keypoints: [0.0, 0.0, 0.0].
+- **person** (optional): When [face recognition](face-recognition.md) is enabled and `--window-attach-person` is `auto` or `always`, each window may include a person object (person_id, name, face_conf, source, verified_at_ms).
 
 Keypoint normalization: x_norm = x_pixel / image_w (clamped), y_norm = y_pixel / image_h (clamped).
 
 ## CLI flags (Phase 4)
 
---cloud-mode frames|windows, --cloud-windows-path (default /v1/windows/ingest), --window-size (30), --window-stride (30), --window-max-buffers (50), --max-windows-queue-size (500), --windows-drop-policy (oldest|newest).
+--cloud-mode frames|windows, --cloud-windows-path (default /v1/windows/ingest), --window-size (30), --window-stride (30), --window-max-buffers (50), --max-windows-queue-size (500), --windows-drop-policy (oldest|newest), --window-attach-person (auto|never|always; for person attachment when face recognition is enabled).
 
 ## Phase 4 counters
 

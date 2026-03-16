@@ -22,3 +22,11 @@ python scripts/check_cloud_gallery.py [base_url] [api_key]
 ```
 
 Defaults: base_url=http://192.168.1.105:8000, api_key=dev-key.
+
+## run_10_random_to_cloud.py
+
+Runs the app on 10 random videos from a library (e.g. NTU filtered by action), with cloud windows upload. No face recognition. Report saved to repo root as `run_10_videos_report.txt`. Configure `NTU_LIB`, `CLOUD_URL`, `CLOUD_API_KEY` at top of script. Run from repo root with `PYTHONPATH` set to repo root.
+
+## run_10_p008_with_face.py
+
+Runs the app on 10 random videos for person P008 from the NTU library, with face recognition and cloud windows upload. Uses `--face-skip-frames 5`, `--face-gallery-url` and `--cloud-url`. Report saved to repo root as `run_10_p008_face_report.txt`. Requires `NTU_LIB` (e.g. `/home/admin/Desktop/ntu_filtered_by_action`), `CLOUD_URL`, `CLOUD_API_KEY`. Run from repo root with `PYTHONPATH` set to repo root.

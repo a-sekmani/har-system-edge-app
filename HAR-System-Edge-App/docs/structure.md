@@ -51,7 +51,9 @@ HAR-System-Edge-App/
 │   └── test_phase4.py            # Phase 4 acceptance test
 ├── scripts/
 │   ├── request_face_gallery.py   # Request face gallery only; save to local cache
-│   └── check_cloud_gallery.py    # Request gallery updated_at + full gallery; print summary
+│   ├── check_cloud_gallery.py    # Request gallery updated_at + full gallery; print summary
+│   ├── run_10_random_to_cloud.py # Run 10 random videos with cloud windows upload
+│   └── run_10_p008_with_face.py  # Run 10 P008 videos with face recognition and cloud upload
 ├── docs/                         # Documentation (this folder)
 ├── tools/
 │   └── mock_cloud_server.py      # Mock HTTP server for E2E (Phase 3/4)

@@ -125,7 +125,7 @@ def main():
 
     report_lines = [
         "=" * 60,
-        f"Report: 10 random P008 videos with face recognition and cloud upload",
+        f"Report: {NUM_VIDEOS} random P008 videos with face recognition and cloud upload",
         "=" * 60,
         f"Library: {NTU_LIB}",
         f"Cloud: {CLOUD_URL}",

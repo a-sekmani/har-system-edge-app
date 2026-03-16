@@ -6,7 +6,7 @@ With --enable-face, the app can fetch a face gallery from the cloud, run face de
 
 **Face thread:** Runs in a dedicated background thread (queue maxsize=1) so the pipeline stays at about 30 FPS. FPS log includes "Person: name or Unknown"; separate line "Persons on screen: ...". Names are not drawn on video.
 
-**Defaults:** --face-skip-frames 10, --face-det-size 256, --face-max-faces 1.
+**Defaults:** --face-skip-frames 10, --face-det-size 256, --face-max-faces 1, --face-sim-threshold 0.45.
 
 ## Gallery sync behavior
 
@@ -17,7 +17,11 @@ With --enable-face, the app can fetch a face gallery from the cloud, run face de
 ## Example
 
 ```bash
-python src/har_pose_app.py --input rpi --no-display --enable-cloud --cloud-mode windows --enable-face --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key --window-attach-person auto
+python src/har_pose_app.py --input rpi --no-display --enable-cloud --cloud-mode windows \
+  --enable-face --face-gallery-url http://192.168.1.105:8000 \
+  --cloud-url http://192.168.1.105:8000 --cloud-api-key dev-key --window-attach-person auto
 ```
+
+Using `--face-gallery-url` (or `--cloud-url` when the gallery is on the same host) is required so the app can fetch the face gallery; use `--enable-face` so persons are recognized and attached to windows.
 
 **Debug:** --log-face-summary; last window in /tmp/last_window.json.

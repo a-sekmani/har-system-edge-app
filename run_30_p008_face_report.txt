@@ -1,0 +1,168 @@
+============================================================
+Report: 30 random P008 videos with face recognition and cloud upload
+============================================================
+Library: /home/admin/Desktop/ntu_filtered_by_action
+Cloud: http://192.168.1.105:8000
+Person filter: P008
+Videos selected: 30
+
+  [OK] S010C003P008R002A001_rgb.avi
+  [FAIL] S015C003P008R001A008_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S016C003P008R002A001_rgb.avi
+  [FAIL] S004C001P008R002A046_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S007C002P008R002A011_rgb.avi
+  [FAIL] S015C002P008R001A008_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S003C002P008R001A002_rgb.avi
+  [OK] S017C001P008R001A046_rgb.avi
+  [OK] S011C003P008R001A048_rgb.avi
+  [OK] S007C001P008R002A048_rgb.avi
+  [OK] S008C002P008R002A001_rgb.avi
+  [OK] S001C003P008R001A011_rgb.avi
+  [FAIL] S013C002P008R002A043_rgb.avi (returncode=-6)
+    last output:
+_frames=0, detections_total=58, filtered_detections_total=0
+INFO | __main__ | Phase4 final: windows_built=1, windows_sent=1, windows_failed=0, windows_dropped=0, windows_queue_depth=0, windows_queue_depth_max=1
+
+[0;93m2026-03-13 23:32:10.992153747 [W:onnxruntime:Default, device_discovery.cc:211 DiscoverDevicesForPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+terminate called without an active exception
+
+  [FAIL] S017C003P008R002A043_rgb.avi (returncode=-6)
+    last output:
+0, multi_person_frames=0, detections_total=47, filtered_detections_total=0
+INFO | __main__ | Phase4 final: windows_built=1, windows_sent=1, windows_failed=0, windows_dropped=0, windows_queue_depth=0, windows_queue_depth_max=1
+
+[0;93m2026-03-13 23:32:14.852984107 [W:onnxruntime:Default, device_discovery.cc:211 DiscoverDevicesForPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+FATAL: exception not rethrown
+
+  [OK] S010C003P008R001A009_rgb.avi
+  [OK] S012C001P008R001A009_rgb.avi
+  [FAIL] S002C002P008R001A048_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S013C001P008R002A002_rgb.avi
+  [FAIL] S009C001P008R001A002_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S011C002P008R002A009_rgb.avi
+  [OK] S017C003P008R001A043_rgb.avi
+  [OK] S010C003P008R002A009_rgb.avi
+  [FAIL] S009C003P008R001A045_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S011C003P008R002A008_rgb.avi
+  [OK] S013C003P008R002A002_rgb.avi
+  [OK] S001C001P008R002A001_rgb.avi
+  [OK] S012C002P008R002A048_rgb.avi
+  [FAIL] S012C002P008R001A011_rgb.avi (returncode=-6)
+    last output:
+rPlatform] GPU device discovery failed: device_discovery.cc:91 ReadFileContents Failed to open file: "/sys/class/drm/card1/device/vendor"[m
+/home/admin/har-system-edge-app-v0.2/venv_hailo_apps/lib/python3.13/site-packages/insightface/utils/face_align.py:23: FutureWarning: `estimate` is deprecated since version 0.26 and will be removed in version 2.2. Please use `SimilarityTransform.from_estimate` class constructor instead.
+  tform.estimate(lmk, dst)
+terminate called without an active exception
+
+  [OK] S006C001P008R001A046_rgb.avi
+  [OK] S007C003P008R002A048_rgb.avi
+
+============================================================
+Summary: 21 of 30 succeeded
+============================================================
+
+Face gallery: updated/synced or loaded from cache at least once
+Face recognition: enabled and ran (see logs for face summary/gallery)
+
+Per-video face recognition:
+  S010C003P008R002A001_rgb.avi: recognized as 'Unknown,'
+  S015C003P008R001A008_rgb.avi: no person recognized (Unknown)
+  S016C003P008R002A001_rgb.avi: no person recognized (Unknown)
+  S004C001P008R002A046_rgb.avi: no person recognized (Unknown)
+  S007C002P008R002A011_rgb.avi: no person recognized (Unknown)
+  S015C002P008R001A008_rgb.avi: no person recognized (Unknown)
+  S003C002P008R001A002_rgb.avi: recognized as 'Unknown,'
+  S017C001P008R001A046_rgb.avi: no person recognized (Unknown)
+  S011C003P008R001A048_rgb.avi: no person recognized (Unknown)
+  S007C001P008R002A048_rgb.avi: recognized as 'Unknown,'
+  S008C002P008R002A001_rgb.avi: no person recognized (Unknown)
+  S001C003P008R001A011_rgb.avi: no person recognized (Unknown)
+  S013C002P008R002A043_rgb.avi: no person recognized (Unknown)
+  S017C003P008R002A043_rgb.avi: no person recognized (Unknown)
+  S010C003P008R001A009_rgb.avi: recognized as 'Unknown,'
+  S012C001P008R001A009_rgb.avi: recognized as 'Unknown,'
+  S002C002P008R001A048_rgb.avi: no person recognized (Unknown)
+  S013C001P008R002A002_rgb.avi: no person recognized (Unknown)
+  S009C001P008R001A002_rgb.avi: no person recognized (Unknown)
+  S011C002P008R002A009_rgb.avi: no person recognized (Unknown)
+  S017C003P008R001A043_rgb.avi: no person recognized (Unknown)
+  S010C003P008R002A009_rgb.avi: no person recognized (Unknown)
+  S009C003P008R001A045_rgb.avi: no person recognized (Unknown)
+  S011C003P008R002A008_rgb.avi: recognized as '-,'
+  S013C003P008R002A002_rgb.avi: no person recognized (Unknown)
+  S001C001P008R002A001_rgb.avi: recognized as '-,'
+  S012C002P008R002A048_rgb.avi: recognized as 'Unknown,'
+  S012C002P008R001A011_rgb.avi: recognized as 'Unknown,'
+  S006C001P008R001A046_rgb.avi: recognized as 'Unknown,'
+  S007C003P008R002A048_rgb.avi: no person recognized (Unknown)
+  -> 10/30 videos had a recognized person.
+
+Why NTU P008 may not match: Gallery embeddings are from cloud enrollment (photos), not from NTU video frames. If face angle/lighting/quality differs, similarity may stay below the configured threshold (e.g. --face-sim-threshold). Same for other names in gallery.
+
+Files that were run:
+  - /home/admin/Desktop/ntu_filtered_by_action/A001/S010C003P008R002A001_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A008/S015C003P008R001A008_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A001/S016C003P008R002A001_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A046/S004C001P008R002A046_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A011/S007C002P008R002A011_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A008/S015C002P008R001A008_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S003C002P008R001A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A046/S017C001P008R001A046_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S011C003P008R001A048_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S007C001P008R002A048_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A001/S008C002P008R002A001_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A011/S001C003P008R001A011_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A043/S013C002P008R002A043_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A043/S017C003P008R002A043_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A009/S010C003P008R001A009_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A009/S012C001P008R001A009_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S002C002P008R001A048_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S013C001P008R002A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S009C001P008R001A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A009/S011C002P008R002A009_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A043/S017C003P008R001A043_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A009/S010C003P008R002A009_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A045/S009C003P008R001A045_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A008/S011C003P008R002A008_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A002/S013C003P008R002A002_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A001/S001C001P008R002A001_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S012C002P008R002A048_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A011/S012C002P008R001A011_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A046/S006C001P008R001A046_rgb.avi
+  - /home/admin/Desktop/ntu_filtered_by_action/A048/S007C003P008R002A048_rgb.avi

@@ -9,20 +9,31 @@
 
 ## Setup
 
-1. Ensure hailo-apps is installed. From the repository root (parent of HAR-System-Edge-App):
+1. From the **repository root** (directory containing `HAR-System-Edge-App` and `venv_hailo_apps`):
 
    ```bash
    cd /path/to/har-system-edge-app-v0.2
    source setup_env.sh
    ```
 
-2. Activate the virtual environment:
+   This sets `PYTHONPATH` to the repo root and activates the virtual environment (`venv_hailo_apps`).
+
+2. Run the application from the **HAR-System-Edge-App** directory:
 
    ```bash
-   source venv_hailo_apps/bin/activate
+   cd HAR-System-Edge-App
+   python src/har_pose_app.py --input rpi --no-display --show-fps
    ```
 
-3. Run the application from the HAR-System-Edge-App directory.
+   Alternatively, from the repo root without changing directory:
+
+   ```bash
+   export PYTHONPATH=/path/to/har-system-edge-app-v0.2
+   source venv_hailo_apps/bin/activate
+   python HAR-System-Edge-App/src/har_pose_app.py --input rpi --no-display --show-fps
+   ```
+
+   (The app sets its working directory to `HAR-System-Edge-App` at startup so `face_gallery` and other project paths resolve correctly.)
 
 ## Optional: Face recognition
 

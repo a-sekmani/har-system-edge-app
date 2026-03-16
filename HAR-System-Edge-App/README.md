@@ -25,9 +25,10 @@ Full documentation is in the **[docs](docs/README.md)** folder:
 
 **Requirements:** Python 3.10+, hailo-apps, Raspberry Pi with camera, Hailo device. See [docs/setup.md](docs/setup.md).
 
+From this directory (HAR-System-Edge-App):
+
 ```bash
-cd HAR-System-Edge-App
-source ../venv_hailo_apps/bin/activate   # or your venv
+source ../venv_hailo_apps/bin/activate   # or your venv at repo root
 python src/har_pose_app.py --input rpi --no-display --show-fps
 ```
 
@@ -42,12 +43,11 @@ python src/har_pose_app.py --input rpi --no-display --show-fps \
 
 ## Acceptance tests
 
-From `HAR-System-Edge-App`: `python acceptance_tests/test_phase0.py`, `python acceptance_tests/test_phase1.py`, `python acceptance_tests/test_phase2.py`, `python acceptance_tests/test_phase3.py`, `python acceptance_tests/test_phase4.py`. See [docs/testing.md](docs/testing.md).
+From this directory: `python acceptance_tests/test_phase0.py`, `python acceptance_tests/test_phase1.py`, `python acceptance_tests/test_phase2.py`, `python acceptance_tests/test_phase3.py`, `python acceptance_tests/test_phase4.py`. See [docs/testing.md](docs/testing.md).
 
 ## Unit tests
 
 ```bash
-cd HAR-System-Edge-App
 pytest tests/ -v
 ```
 
